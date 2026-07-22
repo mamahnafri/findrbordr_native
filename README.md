@@ -9,7 +9,11 @@ Aplikasi WPF C# berbasis Windows yang menempel (*overlay*) secara presisi di ata
 
 ---
 
-## 📸 Preview
+## 📸 Preview & Video Demo
+
+[![FindrBordr Native Demo](https://img.youtube.com/vi/uhTQm3JbFWU/maxresdefault.jpg)](https://youtu.be/uhTQm3JbFWU)
+
+*Klik gambar di atas untuk menonton cuplikan demonstrasi fungsionalitas FindrBordr Native di YouTube.*
 
 ![Preview](ss.jpg)
 ![Preview](ss2.jpg)
