@@ -12,6 +12,102 @@
     WindowStyle="None">
 
     <Window.Resources>
+        <!--  Style untuk Thumb (Grip ScrollBar)  -->
+        <Style x:Key="ModernScrollThumb" TargetType="Thumb">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Rectangle
+                            x:Name="rectangle"
+                            Width="5"
+                            Margin="0,2,2,2"
+                            HorizontalAlignment="Right"
+                            Fill="#60000000"
+                            RadiusX="2.5"
+                            RadiusY="2.5" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="rectangle" Property="Fill" Value="#A0000000" />
+                                <Setter TargetName="rectangle" Property="Width" Value="7" />
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="rectangle" Property="Fill" Value="#C0000000" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!--  Style Utama ScrollBar  -->
+        <Style TargetType="ScrollBar">
+            <Setter Property="Width" Value="8" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid
+                            x:Name="Bg"
+                            Background="Transparent"
+                            SnapsToDevicePixels="true">
+                            <Track
+                                x:Name="PART_Track"
+                                IsDirectionReversed="true"
+                                IsEnabled="{TemplateBinding IsMouseOver}">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton
+                                        Command="{x:Static ScrollBar.PageUpCommand}"
+                                        Focusable="False"
+                                        Opacity="0" />
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton
+                                        Command="{x:Static ScrollBar.PageDownCommand}"
+                                        Focusable="False"
+                                        Opacity="0" />
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource ModernScrollThumb}" />
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation
+                                    Storyboard.TargetProperty="Opacity"
+                                    To="1"
+                                    Duration="0:0:0.2" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                    <Trigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation
+                                    Storyboard.TargetProperty="Opacity"
+                                    To="0"
+                                    Duration="0:0:0.5" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.ExitActions>
+                </Trigger>
+
+                <Trigger Property="IsMouseCaptureWithin" Value="True">
+                    <Setter Property="Opacity" Value="1" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <!--  Style Mac Dots Controls  -->
         <Style x:Key="MacDotStyle" TargetType="Button">
             <Setter Property="Width" Value="12" />
@@ -44,12 +140,11 @@
                 <Setter.Value>
                     <DropShadowEffect
                         BlurRadius="30"
-                        Opacity="0.1"
+                        Opacity="0.15"
                         ShadowDepth="5"
                         Color="#000000" />
                 </Setter.Value>
             </Setter>
-
         </Style>
 
         <!--  Style Sidebar Item  -->
@@ -138,7 +233,7 @@
             Grid.ColumnSpan="2"
             Background="Transparent"
             BorderBrush="White"
-            BorderThickness="11"
+            BorderThickness="10"
             CornerRadius="23"
             IsHitTestVisible="False" />
 
@@ -153,7 +248,6 @@
             <Grid.RenderTransform>
                 <TranslateTransform Y="3" />
             </Grid.RenderTransform>
-
 
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
@@ -181,7 +275,6 @@
                         FontWeight="SemiBold"
                         Style="{StaticResource NavButtonStyle}"
                         ToolTip="Back" />
-
                     <Button
                         x:Name="BtnUp"
                         Width="4"
@@ -192,7 +285,6 @@
                         FontWeight="Bold"
                         Style="{StaticResource NavButtonStyle}"
                         ToolTip="Up" />
-
                     <Button
                         x:Name="BtnForward"
                         Width="26"
@@ -208,7 +300,6 @@
 
             <!--  TITLE BAR  -->
             <Border Grid.Column="1">
-
                 <TextBlock
                     x:Name="TxtTitle"
                     VerticalAlignment="Center"
@@ -230,19 +321,10 @@
                         Width="26"
                         Height="24"
                         Click="BtnViewIcons_Click"
-                        Content="░"
+                        Content="⊞"
                         FontSize="14"
                         Style="{StaticResource NavButtonStyle}"
                         ToolTip="Icons View" />
-                    <Button
-                        x:Name="BtnViewList"
-                        Width="26"
-                        Height="24"
-                        Click="BtnViewList_Click"
-                        Content="▥"
-                        FontSize="16"
-                        Style="{StaticResource NavButtonStyle}"
-                        ToolTip="List View" />
                     <Button
                         x:Name="BtnViewDetails"
                         Width="26"
@@ -253,11 +335,20 @@
                         Style="{StaticResource NavButtonStyle}"
                         ToolTip="Details View" />
                     <Button
+                        x:Name="BtnViewList"
+                        Width="26"
+                        Height="24"
+                        Click="BtnViewList_Click"
+                        Content="▥"
+                        FontSize="16"
+                        Style="{StaticResource NavButtonStyle}"
+                        ToolTip="List View" />
+                    <Button
                         x:Name="BtnViewTiles"
                         Width="26"
                         Height="24"
                         Click="BtnViewTiles_Click"
-                        Content="⊞"
+                        Content="⧉"
                         FontSize="16"
                         Style="{StaticResource NavButtonStyle}"
                         ToolTip="Tiles View" />
@@ -349,7 +440,7 @@
                     Height="28"
                     HorizontalContentAlignment="Center"
                     Click="BtnSearch_Click"
-                    Content="🔍"
+                    Content="🔎︎"
                     FontSize="13"
                     Style="{StaticResource NavButtonStyle}"
                     ToolTip="Search (Ctrl+F)" />
@@ -357,7 +448,7 @@
         </Grid>
 
         <!--  =========================================================  -->
-        <!--  2. LEFT SIDEBAR AREA (PURE WPF PARALLAX GLASS MASK)  -->
+        <!--  2. LEFT SIDEBAR AREA (OPTIMIZED PARALLAX GLASS)  -->
         <!--  =========================================================  -->
         <Grid
             Grid.Row="0"
@@ -373,9 +464,7 @@
                 </ContextMenu>
             </Grid.ContextMenu>
 
-            <!--  =========================================================  -->
-            <!--  LAYER 1: Base panel putih  -->
-            <!--  =========================================================  -->
+            <!--  LAYER 1: Base shadow & panel putih  -->
             <Border
                 Margin="8"
                 Background="White"
@@ -391,95 +480,80 @@
 
             <Border
                 Margin="8"
-                Background="White"
-                
+                Background="#8b8a8a"
                 CornerRadius="20">
-                
                 <Border.Effect>
                     <DropShadowEffect
                         BlurRadius="40"
-                        Opacity="0.07"
+                        Opacity="0.09"
                         ShadowDepth="5"
                         Color="#000000" />
                 </Border.Effect>
             </Border>
-            <!--  =========================================================  -->
-            <!--  LAYER 2: Wallpaper Parallax  -->
-            <!--  =========================================================  -->
+
+            <!--  LAYER 2: Wallpaper Parallax (Direct Blur Canvas, Flat Structure)  -->
             <Border
                 x:Name="SidebarGlassBorder"
                 Margin="8"
                 Background="#33FFFFFF"
-                IsHitTestVisible="False"
-                CornerRadius="20">
-
-                <!--  Masking agar efek Blur terpotong sempurna sesuai CornerRadius  -->
+                CornerRadius="19"
+                IsHitTestVisible="False">
                 <Border.OpacityMask>
                     <VisualBrush>
                         <VisualBrush.Visual>
                             <Border
                                 Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Border}}"
                                 Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Border}}"
-                                Background="Black"
-                                CornerRadius="20" />
+                                Background="White"
+                                CornerRadius="19" />
                         </VisualBrush.Visual>
                     </VisualBrush>
                 </Border.OpacityMask>
-                <Grid>
-                    <!--  Canvas tempat Wallpaper + Blur Effect  -->
-                    <Grid x:Name="ParallaxCanvas" ClipToBounds="True">
-                        <Grid.Effect>
-                            <BlurEffect Radius="70" RenderingBias="Quality"/>
-                        </Grid.Effect>
-                    </Grid>
+                <!-- Direct Element tanpa ekstra Grid nesting -->
+                <Grid x:Name="ParallaxCanvas" ClipToBounds="True">
+                    <Grid.Effect>
+                        <BlurEffect Radius="70" RenderingBias="Quality" />
+                    </Grid.Effect>
                 </Grid>
             </Border>
 
-            <!--  ========================================================  -->
-            <!--  [Layar 3] Foreground Controls UI + SPECULAR LIGHT LIQUID GLASS BORDER  -->
-            <!--  ========================================================  -->
-            <Border
-                Margin="6.5"
+            <!--  LAYER 3: Foreground Controls UI  -->
+            <Border x:Name="Layer3Border"
+                Margin="7"
                 BorderThickness="1.5"
                 CornerRadius="20">
-
                 <Border.BorderBrush>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Offset="0.0" Color="#FFFFFFFF" />
-                        <GradientStop Offset="0.4" Color="#33FFFFFF" />
-                        <GradientStop Offset="0.7" Color="#10FFFFFF" />
-                        <GradientStop Offset="1.0" Color="#99FFFFFF" />
+                        <GradientStop Offset="0.25" Color="#25FFFFFF" />
+                        <GradientStop Offset="0.65" Color="#05FFFFFF" />
+                        <GradientStop Offset="1.0" Color="#60FFFFFF" />
                     </LinearGradientBrush>
                 </Border.BorderBrush>
                 <Border.Background>
-                    <SolidColorBrush Color="#D9FFFFFF" />
+                    <SolidColorBrush Color="#E6FFFFFF" />
                 </Border.Background>
+
                 <ScrollViewer Margin="10,14" VerticalScrollBarVisibility="Auto">
                     <StackPanel x:Name="SidebarContainer">
 
                         <!--  Mac Traffic Controls  -->
                         <StackPanel Margin="4,0,0,14" Orientation="Horizontal">
-                            <Button
+                            <Button x:Name="DotClose"
                                 Background="#FF5F56"
                                 Click="BtnClose_Click"
                                 Style="{StaticResource MacDotStyle}" />
-                            <Button
+                            <Button x:Name="DotMinimize"
                                 Background="#FFBD2E"
                                 Click="BtnMinimize_Click"
                                 Style="{StaticResource MacDotStyle}" />
-                            <Button
+                            <Button x:Name="DotMaximize"
                                 Background="#27C93F"
                                 Click="BtnMaximize_Click"
                                 Style="{StaticResource MacDotStyle}" />
                         </StackPanel>
 
                         <!--  Navigation Shortcuts Bawaan  -->
-                        <Button
-                            Click="Nav_Click"
-                            Content="Recents"
-                            Style="{StaticResource SideBar}"
-                            Tag="shell:::{679F85CB-0220-4080-B29B-5540CC05AAB6}" />
-
                         <TextBlock
                             Margin="8,10,0,4"
                             FontSize="10"
@@ -502,6 +576,7 @@
                             Style="{StaticResource SideBar}"
                             Tag="MyDocuments" />
 
+                        <!--  CUSTOM SHORTCUTS (Data binding otomatis ke customShortcuts)  -->
                         <Border
                             x:Name="DropZoneBorder"
                             Padding="2"
@@ -511,10 +586,9 @@
                             PreviewDragOver="DropZone_DragOver"
                             PreviewDrop="DropZone_Drop">
 
-                            <ItemsControl x:Name="CustomShortcutsList">
+                            <ItemsControl x:Name="CustomShortcutsList" ItemsSource="{Binding CustomShortcuts}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <!--  Tombol Shortcut Dinamis  -->
                                         <Button
                                             Click="Nav_Click"
                                             Content="{Binding Title}"
@@ -539,25 +613,17 @@
                             Text="Locations" />
                         <Button
                             Click="Nav_Click"
-                            Content="UserDir"
+                            Content="{Binding UserProfileName}"
                             Style="{StaticResource SideBar}"
                             Tag="UserProfile" />
                         <Button
                             Click="Nav_Click"
-                            Content="OS Disk (C:)"
+                            Content="System Disk"
                             Style="{StaticResource SideBar}"
-                            Tag="C:\" />
-
-                        <!--  =========================================================  -->
-                        <!--  SECTION BARU: CUSTOM SHORTCUTS (DRAG & DROP ZONE)  -->
-                        <!--  =========================================================  -->
-
-
-
+                            Tag="shell:::{20D04FE0-3AEA-1069-A2D8-08002B30309D}" />
                     </StackPanel>
                 </ScrollViewer>
             </Border>
-
         </Grid>
     </Grid>
 </Window>
