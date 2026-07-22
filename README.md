@@ -12,6 +12,7 @@ Aplikasi WPF C# berbasis Windows yang menempel (*overlay*) secara presisi di ata
 ## 📸 Preview
 
 ![Preview](ss.jpg)
+![Preview](ss2.jpg)
 
 ---
 
