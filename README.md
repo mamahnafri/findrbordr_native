@@ -1,11 +1,11 @@
 # 🖼️ FindrBordr Native (WPF Explorer Overlay)
 
 [![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows)](https://microsoft.com)
-[![Framework](https://img.shields.io/badge/.NET-6.0%20%7C%208.0-512BD4?style=for-the-badge&logo=dotnet)](https://dotnet.microsoft.com/)
+[![Framework](https://img.shields.io/badge/.NET-8.0-512BD4?style=for-the-badge&logo=dotnet)](https://dotnet.microsoft.com/)
 [![Language](https://img.shields.io/badge/Language-C%23-239120?style=for-the-badge&logo=c-sharp)](https://docs.microsoft.com/en-us/dotnet/csharp/)
 [![Development](https://img.shields.io/badge/Mode-Vibe%20Coding%20%2F%20AI%20Assisted-FF6F61?style=for-the-badge)](https://github.com)
 
-Aplikasi WPF C# berbasis Windows yang menempel (*overlay*) secara presisi di atas jendela Windows File Explorer (`CabinetWClass`). 
+A C# WPF application for Windows that seamlessly attaches as a precise overlay on top of the Windows File Explorer window (`CabinetWClass`).
 
 ---
 
@@ -13,7 +13,7 @@ Aplikasi WPF C# berbasis Windows yang menempel (*overlay*) secara presisi di ata
 
 [![FindrBordr Native Demo](https://img.youtube.com/vi/uhTQm3JbFWU/maxresdefault.jpg)](https://youtu.be/uhTQm3JbFWU)
 
-*Klik gambar di atas untuk menonton cuplikan demonstrasi fungsionalitas FindrBordr Native di YouTube.*
+*Click the image above to watch a video demonstration of FindrBordr Native on YouTube.*
 
 ![Preview](dark.webp)
 ![Preview](ss.jpg)
@@ -21,92 +21,92 @@ Aplikasi WPF C# berbasis Windows yang menempel (*overlay*) secara presisi di ata
 
 ---
 
-## 💡 Inspirasi & Kredit Proyek
+## 💡 Inspiration & Credits
 
-Proyek ini terinspirasi dari aplikasi kustomisasi antarmuka Windows ternama:
+This project was inspired by well-known Windows UI customization software:
 * 🛠️ **[MyDockFinder](https://github.com/mydockfinder/mydockfinder-for-Win10-Win11)**
 * 🖼️ **[BorderSkin](https://github.com/mohamedkomalo/BorderSkin)**
 
 ---
 
 > [!WARNING]
-> **Proyek Eksperimental / Proof of Concept (PoC)**  
-> Proyek ini dibangun sepenuhnya menggunakan **AI-assisted / Vibe Coding**. Kode dirancang untuk kebutuhan uji coba fungsionalitas dan kustomisasi personal, sehingga masih memiliki beberapa *bug* dan keterbatasan.  
+> **Experimental Project / Proof of Concept (PoC)**  
+> This project was built entirely using **AI-assisted / Vibe Coding**. The codebase was developed for functional testing and personal customization, so it may still contain bugs and limitations.  
 > 
-> 🤝 **Kontribusi Sangat Diharapkan!** Komunitas dan pengembang lain sangat disambut hangat untuk membuka *Issue* maupun *Pull Request (PR)* demi menyempurnakan aplikasi ini agar lebih akurat dan stabil!
+> 🤝 **Contributions Are Welcome!** Developers and community members are warmly invited to open *Issues* or submit *Pull Requests (PRs)* to help improve accuracy, performance, and stability!
 
 ---
 
-## ✨ Fitur Utama
+## ✨ Key Features
 
 - 📌 **Window Docking & Syncing**  
-  Menempel dan mengikuti pergerakan File Explorer secara *real-time* menggunakan Win32 `SetWindowPos` dan event hook `SetWinEventHook`.
+  Attaches to and tracks File Explorer movements in real-time using Win32 `SetWindowPos` and global event hooks via `SetWinEventHook`.
 - 🕹️ **Integrated Navigation Toolbar**  
-  Eksekusi kontrol bawaan Explorer (Back, Forward, Up, View, Search, dll.) secara langsung memanfaatkan Win32 `SendKeys`.
+  Executes built-in Explorer controls (Back, Forward, Up, View, Search, etc.) directly using Win32 `SendKeys`.
 - 🌌 **Parallax Wallpaper Effect**  
-  Latar belakang jendela menyesuaikan dengan posisi wallpaper desktop Windows untuk memberikan efek transparan yang dinamis.
+  Dynamically aligns its background with the Windows desktop wallpaper to create a seamless depth/parallax transparency effect.
 - 📁 **Custom Shortcuts via Drag & Drop**  
-  Tambahkan jalan pintas folder atau file lokal favorit secara instan hanya dengan menyeret (*drag*) file ke area yang disediakan.
+  Instantly add shortcuts to your favorite local files or folders by dragging and dropping them into the designated drop zone.
 
 ---
 
-## 🔒 Izin & Akses Sistem (Win32 APIs)
+## 🔒 System Permissions & Access (Win32 APIs)
 
-Aplikasi ini berjalan sebagai aplikasi WPF tingkat lanjut yang melakukan *docking* (menempelkan *overlay* UI) secara dinamis ke jendela **Windows File Explorer** (`CabinetWClass`). 
+This advanced WPF application dynamically docks its overlay UI directly over the **Windows File Explorer** window (`CabinetWClass`). 
 
-Aplikasi **tidak memerlukan akses hak administrator (Elevated/Admin privileges)** atau injeksi DLL (*code injection*), namun menggunakan beberapa API bawaan Windows (`user32.dll` & `dwmapi.dll`) untuk memantau serta menyelaraskan posisi *overlay*.
+It **does not require administrator/elevated privileges** or DLL injection (*code injection*). Instead, it relies on standard Windows Win32 APIs (`user32.dll` & `dwmapi.dll`) to track and align the overlay window smoothly.
 
-Berikut adalah daftar Win32 API yang digunakan beserta keterangannya secara transparan:
+Below is a transparent breakdown of the Win32 APIs used in this project:
 
-### 1. Pelacakan & Deteksi Jendela Explorer (*Window Tracking & Enumeration*)
-Digunakan untuk memantau kapan jendela File Explorer dibuka, ditutup, dipindahkan, atau difokuskan.
-* **`SetWinEventHook` & `UnhookWinEvent`**: Memasang *event hook* global (*out-of-context*) untuk mendengarkan perubahan pada sistem Windows tanpa menginjeksi kode ke proses lain.
-  * *Event yang dipantau:* Perubahan lokasi (`EVENT_OBJECT_LOCATIONCHANGE`), jendela aktif/fokus (`EVENT_SYSTEM_FOREGROUND`), serta penutupan/pembukaan jendela (`EVENT_OBJECT_DESTROY`, `EVENT_OBJECT_SHOW`, `EVENT_OBJECT_NAMECHANGE`).
-* **`EnumWindows`**: Memindai seluruh jendela yang sedang aktif untuk menemukan jendela File Explorer utama jika pelacakan otomatis membutuhkan penyesuaian.
-* **`GetForegroundWindow`**: Memeriksa apakah jendela yang sedang difokuskan oleh pengguna adalah File Explorer target.
-* **`IsWindow`, `IsWindowVisible`, `GetClassName`, `GetWindowText`**: Memvalidasi status jendela, mengecek apakah kelas jendela adalah `CabinetWClass` (File Explorer), serta mengambil judul *tab/folder* aktif.
+### 1. Window Tracking & Enumeration
+Monitors when File Explorer windows are opened, closed, moved, or focused.
+* **`SetWinEventHook` & `UnhookWinEvent`**: Registers global out-of-context event hooks to listen for system-wide window changes without injecting code into external processes.
+  * *Monitored Events:* Location changes (`EVENT_OBJECT_LOCATIONCHANGE`), foreground focus changes (`EVENT_SYSTEM_FOREGROUND`), and window creation/destruction (`EVENT_OBJECT_DESTROY`, `EVENT_OBJECT_SHOW`, `EVENT_OBJECT_NAMECHANGE`).
+* **`EnumWindows`**: Scans active top-level windows to locate the primary File Explorer target when re-attachment is required.
+* **`GetForegroundWindow`**: Checks whether the currently focused window belongs to the target File Explorer process.
+* **`IsWindow`, `IsWindowVisible`, `GetClassName`, `GetWindowText`**: Validates window handles, checks for the `CabinetWClass` window class (File Explorer), and retrieves the active tab/folder title.
 
-### 2. Manipulasi Posisi & Tampilan (*Window Docking & Styling*)
-Digunakan untuk menyelaraskan *overlay* UI tepat di atas area File Explorer.
-* **`SetWindowPos`**: Mengubah posisi dan ukuran jendela *overlay* agar selalu presisi mengikuti pergerakan File Explorer.
-* **`DwmGetWindowAttribute` (`DWMWA_EXTENDED_FRAME_BOUNDS`)**: Mengambil batas bingkai jendela Explorer yang akurat melalui Desktop Window Manager (DWM), termasuk memperhitungkan *drop shadow* transparan.
+### 2. Window Docking & Styling
+Aligns and styles the overlay UI perfectly over the target File Explorer window.
+* **`SetWindowPos`**: Dynamically adjusts the overlay's position and dimensions to match File Explorer in real-time.
+* **`DwmGetWindowAttribute` (`DWMWA_EXTENDED_FRAME_BOUNDS`)**: Retrieves accurate window bounds via the Desktop Window Manager (DWM), correctly accounting for transparent drop shadows and borders.
 * **`GetWindowLongPtr` & `SetWindowLongPtr`**:
-  * Mengatur *parent/owner* jendela (`GWL_HWNDPARENT`) agar *overlay* melekat pada jendela Explorer.
-  * Menambahkan *extended window style* (`WS_EX_NOACTIVATE` & `WS_EX_TOOLWINDOW`) agar jendela *overlay* tidak mengambil fokus ketikan keyboard dari Explorer dan tidak muncul secara terpisah di Alt+Tab / Taskbar.
+  * Sets window ownership (`GWL_HWNDPARENT`) so the overlay attaches directly to the target Explorer window.
+  * Applies extended window styles (`WS_EX_NOACTIVATE` & `WS_EX_TOOLWINDOW`) to prevent the overlay from stealing keyboard focus or appearing separately in Alt+Tab / the Taskbar.
 
-### 3. Interaksi & Navigasi (*Control & Input Handling*)
-Digunakan untuk mengirimkan perintah kontrol navigasi dari tombol *overlay* ke File Explorer.
-* **`SetForegroundWindow`**: Mengembalikan fokus input secara instan ke File Explorer saat pengguna mengeklik kontrol *overlay*.
-* **`SendMessage`**: Mengirimkan sinyal instruksi standar jendela Windows seperti Tutup (`WM_CLOSE`), Minimize (`SC_MINIMIZE`), dan Maximize/Restore (`SC_MAXIMIZE`/`SC_RESTORE`) langsung ke File Explorer target.
-* **`WScript.Shell` (via COM Interop)**: Mengirimkan simulasi *shortcut* keyboard ke File Explorer untuk eksekusi cepat (seperti `Alt+Left` untuk Back, `Ctrl+L` untuk navigasi lokasi, `Ctrl+F` untuk Pencarian, dll.).
+### 3. Navigation & Interaction Handling
+Relays user interactions from the overlay buttons back to File Explorer.
+* **`SetForegroundWindow`**: Instantly restores focus to File Explorer when an overlay control is clicked.
+* **`SendMessage`**: Sends standard Windows commands such as Close (`WM_CLOSE`), Minimize (`SC_MINIMIZE`), and Maximize/Restore (`SC_MAXIMIZE`/`SC_RESTORE`) directly to the target window.
+* **`WScript.Shell` (via COM Interop)**: Sends keyboard shortcut commands to File Explorer for quick navigation (e.g., `Alt+Left` for Back, `Ctrl+L` for address bar navigation, `Ctrl+F` for Search, etc.).
 
-### 4. Integrasi Visual Sistem (*System Desktop Integration*)
-* **`SystemParametersInfo` (`SPI_GETDESKWALLPAPER`)**: Membaca *path* gambar wallpaper desktop sistem saat ini untuk menghasilkan efek visual *parallax* transparan pada latar belakang *overlay*.
+### 4. Desktop Visual Integration
+* **`SystemParametersInfo` (`SPI_GETDESKWALLPAPER`)**: Reads the active system desktop wallpaper path to generate a dynamic parallax background effect behind the overlay.
 
-> 💡 **Catatan Privasi & Keamanan:**  
-> Aplikasi ini bersifat **100% lokal**. Semua pembacaan jalur folder dan kustomisasi pintasan (*custom shortcuts*) disimpan secara lokal di komputer Anda (`custom_shortcuts.json`) dan tidak ada data yang dikirimkan ke jaringan luar.
+> 💡 **Privacy & Security Notice:**  
+> This application works **100% locally**. All folder paths and custom shortcut configurations are saved locally on your computer in `app_settings.json`. No data is ever collected or sent over the network.
 
 ---
 
-## 💻 Persyaratan Sistem
+## 💻 System Requirements
 
-| Komponen | Spesifikasi Minimum |
+| Component | Minimum Requirement |
 | :--- | :--- |
-| **Sistem Operasi** | Windows 10 / Windows 11 |
-| **Runtime** | .NET 6.0 SDK / .NET 8.0 SDK |
-| **IDE (Opsional)** | Visual Studio 2022 / VS Code |
+| **Operating System** | Windows 10 / Windows 11 (64-bit / x64) |
+| **Runtime** | [.NET 8.0 Desktop Runtime (x64)](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) *(Not required for Standalone Release)* |
+| **Development** | .NET 8.0 SDK / Visual Studio 2022 / VS Code |
 
 ---
 
 ## 🗺️ Roadmap & To-Do
 
-- [ ] 🌙 Memperbaiki opsi **Dark Mode**
-- [ ] 🎯 Memperbaiki manajemen fokus jendela File Explorer saat diklik
-- [ ] 🧪 Mengimplementasikan efek *refraction* pada bagian sidebar
-- [ ] 🔀 Fitur kustomisasi posisi untuk tombol toolbar dan *custom shortcut*
+- [ ] 🌙 Improve **Dark Mode** support and theme toggling
+- [ ] 🎯 Refine window focus management when interacting with overlay elements
+- [ ] 🧪 Implement a sidebar refraction/blur effect
+- [ ] 🔀 Add customization options for reordering toolbar buttons and custom shortcuts
 
 ---
 
-## 🤝 Kontribusi
+## 🤝 Contributing
 
-Jalur kontribusi selalu terbuka! Jika Anda memiliki ide perbaikan arsitektur kode, perbaikan *bug*, atau peningkatan visual, silakan kirimkan *Pull Request*.
+Contributions are always welcome! If you have suggestions for architectural improvements, bug fixes, or visual enhancements, feel free to open an issue or submit a Pull Request.
