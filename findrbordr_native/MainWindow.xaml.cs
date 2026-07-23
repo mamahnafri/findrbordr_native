@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -6,6 +7,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
@@ -13,14 +15,104 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace findrbordr_native
 {
+    #region ==================== DATA MODELS & JSON SETTINGS ====================
+
+    public class ShadowSettings
+    {
+        public double BlurRadius { get; set; } = 30;
+        public double Opacity { get; set; } = 0.12;
+        public double ShadowDepth { get; set; } = 5;
+        public string ColorHex { get; set; } = "#000000";
+    }
+
+    public class BrushSettings
+    {
+        public string ColorHex { get; set; } = "#FFFFFF";
+        public double Opacity { get; set; } = 0.9;
+    }
+
+    /// <summary>
+    /// Model utama konfigurasi aplikasi yang memuat Dynamic Resource XAML & Shadow Settings
+    /// </summary>
+    public class AppSettings
+    {
+        // --- Dynamic Resource Brushes ---
+        public double SidebarWidth { get; set; } = 185;
+        public string CapsuleBackgroundBrush { get; set; } = "#FFFFFF";
+        public string MainTextBrush { get; set; } = "#2C3E50";
+        public string OuterFrameBrush { get; set; } = "#FFFFFF";
+
+        // --- Drop Shadows & Borders ---
+        public BrushSettings Layer3BorderBackground { get; set; } = new BrushSettings();
+        public ShadowSettings LeftSidebarGridShadow { get; set; } = new ShadowSettings();
+        public ShadowSettings CapsuleStyleShadow { get; set; } = new ShadowSettings();
+
+        // --- Shortcuts ---
+        public ObservableCollection<MainWindow.ShortcutItem> CustomShortcuts { get; set; } =
+            new ObservableCollection<MainWindow.ShortcutItem>();
+    }
+
+    public static class SettingsStorage
+    {
+        private static readonly string FilePath = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory,
+            "app_settings.json"
+        );
+
+        private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+        };
+
+        public static AppSettings LoadSettings()
+        {
+            if (!File.Exists(FilePath))
+            {
+                // Buat file JSON default jika belum ada saat compile/first run
+                var defaultSettings = new AppSettings();
+                SaveSettings(defaultSettings);
+                return defaultSettings;
+            }
+
+            try
+            {
+                string json = File.ReadAllText(FilePath);
+                var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions);
+                return settings ?? new AppSettings();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Gagal memuat JSON settings: " + ex.Message);
+                return new AppSettings();
+            }
+        }
+
+        public static void SaveSettings(AppSettings settings)
+        {
+            try
+            {
+                string json = JsonSerializer.Serialize(settings, JsonOptions);
+                File.WriteAllText(FilePath, json);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Gagal menyimpan JSON settings: " + ex.Message);
+            }
+        }
+    }
+
+    #endregion
+
     public partial class MainWindow : Window
     {
-        #region Win32 API Imports
+        #region ==================== WIN32 API IMPORTS & STRUCTS ====================
+
         [DllImport("user32.dll")]
         private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
 
@@ -81,7 +173,9 @@ namespace findrbordr_native
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
-        // --- Event Hooking APIs ---
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
         private delegate void WinEventDelegate(
             IntPtr hWinEventHook,
             uint eventType,
@@ -127,10 +221,10 @@ namespace findrbordr_native
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool SetForegroundWindow(IntPtr hWnd);
 
-        // --- Tambahkan Field Baru pada MainWindow ---
-        private DispatcherTimer? syncThrottleTimer;
-        private bool isSyncPending = false;
-        private bool updatePending = false;
+        #endregion
+
+        #region ==================== FIELDS & PRIVATE VARIABLES ====================
+
         private const uint SPI_GETDESKWALLPAPER = 0x0073;
         private const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
         private const uint SWP_NOACTIVATE = 0x0010;
@@ -146,6 +240,8 @@ namespace findrbordr_native
 
         private const int WM_MOUSEACTIVATE = 0x0021;
         private const int MA_NOACTIVATE = 3;
+        private const uint SWP_NOCOPYBITS = 0x0100;
+        private const uint SWP_DEFERERASE = 0x2000;
         private const uint WM_CLOSE = 0x0010;
         private const uint WM_SYSCOMMAND = 0x0112;
         private const int SC_MINIMIZE = 0xF020;
@@ -156,7 +252,12 @@ namespace findrbordr_native
         private const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B;
         private const uint WINEVENT_OUTOFCONTEXT = 0x0000;
         private const int OBJID_WINDOW = 0;
-        #endregion
+
+        private DispatcherTimer? syncThrottleTimer;
+        private bool isSyncPending = false;
+        private bool isFocusStateRefreshQueued = false;
+        private bool isTitleRefreshQueued = false;
+        private bool lastExplorerFocusVisualState = false;
 
         private IntPtr targetExplorerHwnd = IntPtr.Zero;
         private dynamic? wshellInstance;
@@ -167,10 +268,28 @@ namespace findrbordr_native
         private IntPtr destroyHook = IntPtr.Zero;
         private IntPtr showHook = IntPtr.Zero;
         private IntPtr nameHook = IntPtr.Zero;
+
         private ImageBrush? wallpaperBrush;
         private double screenWidth = SystemParameters.PrimaryScreenWidth;
         private double screenHeight = SystemParameters.PrimaryScreenHeight;
+
         public string UserProfileName { get; set; }
+
+        private AppSettings appSettings = new AppSettings();
+        private ObservableCollection<ShortcutItem> customShortcuts =
+            new ObservableCollection<ShortcutItem>();
+
+        private string lastKnownFolderName = "Explorer";
+        private readonly Stopwatch pathCheckStopwatch = Stopwatch.StartNew();
+        private long lastPathCheckMs = -1000;
+        private const int PATH_CHECK_THROTTLE_MS = 300;
+        private const int MAX_FOLDER_TITLE_LENGTH = 32;
+        private readonly StringBuilder classNameBuffer = new StringBuilder(256);
+
+        private static readonly Regex TabSuffixRegex = new Regex(
+            @" and \d+ more tabs",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase
+        );
 
         public class ShortcutItem
         {
@@ -178,231 +297,15 @@ namespace findrbordr_native
             public string Path { get; set; } = string.Empty;
         }
 
-        public static class ShortcutStorage
-        {
-            private static readonly string FilePath = Path.Combine(
-                AppDomain.CurrentDomain.BaseDirectory,
-                "custom_shortcuts.json"
-            );
+        #endregion
 
-            public static ObservableCollection<ShortcutItem> LoadShortcuts()
-            {
-                if (!File.Exists(FilePath))
-                    return new ObservableCollection<ShortcutItem>();
-
-                try
-                {
-                    string json = File.ReadAllText(FilePath);
-                    var items = JsonSerializer.Deserialize<ObservableCollection<ShortcutItem>>(
-                        json
-                    );
-                    return items ?? new ObservableCollection<ShortcutItem>();
-                }
-                catch
-                {
-                    return new ObservableCollection<ShortcutItem>();
-                }
-            }
-
-            public static void SaveShortcuts(ObservableCollection<ShortcutItem> shortcuts)
-            {
-                try
-                {
-                    string json = JsonSerializer.Serialize(
-                        shortcuts,
-                        new JsonSerializerOptions { WriteIndented = true }
-                    );
-                    File.WriteAllText(FilePath, json);
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine("Gagal menyimpan JSON: " + ex.Message);
-                }
-            }
-        }
-
-        private ObservableCollection<ShortcutItem> customShortcuts =
-            new ObservableCollection<ShortcutItem>();
-
-        private void InitCustomShortcuts()
-        {
-            try
-            {
-                customShortcuts = ShortcutStorage.LoadShortcuts();
-
-                Dispatcher.BeginInvoke(
-                    new Action(() =>
-                    {
-                        if (this.FindName("CustomShortcutsList") is ItemsControl listControl)
-                        {
-                            listControl.ItemsSource = customShortcuts;
-                        }
-                    }),
-                    DispatcherPriority.Loaded
-                );
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine("Gagal memuat kustom shortcut: " + ex.Message);
-            }
-        }
-
-        private void DropZone_DragOver(object sender, DragEventArgs e)
-        {
-            if (e.Data.GetDataPresent(DataFormats.FileDrop))
-            {
-                e.Effects = DragDropEffects.Copy;
-            }
-            else
-            {
-                e.Effects = DragDropEffects.None;
-            }
-            e.Handled = true;
-        }
-
-        private void DropZone_Drop(object sender, DragEventArgs e)
-        {
-            e.Handled = true;
-
-            if (e.Data.GetDataPresent(DataFormats.FileDrop))
-            {
-                string[]? files = e.Data.GetData(DataFormats.FileDrop) as string[];
-
-                if (files != null && files.Length > 0)
-                {
-                    bool hasNewItems = false;
-
-                    foreach (string path in files)
-                    {
-                        // 1. Cek duplikasi path (Case-insensitive)
-                        bool isDuplicate = customShortcuts.Any(s =>
-                            s.Path.Equals(path, StringComparison.OrdinalIgnoreCase)
-                        );
-
-                        if (!isDuplicate)
-                        {
-                            // 2. Ekstrak nama judul secara bersih (Hilangkan .lnk jika ada)
-                            string cleanTitle = GetFriendlyNameFromPath(path);
-
-                            // 3. Tambahkan ke koleksi
-                            customShortcuts.Add(
-                                new ShortcutItem { Title = cleanTitle, Path = path }
-                            );
-
-                            hasNewItems = true;
-                        }
-                    }
-
-                    if (hasNewItems)
-                    {
-                        // Simpan ke storage
-                        ShortcutStorage.SaveShortcuts(customShortcuts);
-
-                        // Jika customShortcuts menggunakan ObservableCollection,
-                        // blok Dispatcher/ItemsSource di bawah ini SEBENARNYA TIDAK DIPERLUKAN LAGI.
-                        // Tapi jika masih List biasa, tetap gunakan pembaharuan ini:
-                        if (this.FindName("CustomShortcutsList") is ItemsControl listControl)
-                        {
-                            listControl.ItemsSource = null;
-                            listControl.ItemsSource = customShortcuts;
-                        }
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Helper untuk membersihkan nama file dari ekstensi .lnk atau format path root
-        /// </summary>
-        private string GetFriendlyNameFromPath(string path)
-        {
-            try
-            {
-                // Ambil nama file tanpa ekstensi (misal "Chrome.lnk" -> "Chrome")
-                string name = System.IO.Path.GetFileNameWithoutExtension(path);
-
-                if (string.IsNullOrWhiteSpace(name))
-                {
-                    // Jika root drive misal "C:\", jadikan "C: Drive" atau tetap "C:\"
-                    name = path.TrimEnd(
-                        System.IO.Path.DirectorySeparatorChar,
-                        System.IO.Path.AltDirectorySeparatorChar
-                    );
-                }
-
-                return name;
-            }
-            catch
-            {
-                return path;
-            }
-        }
-
-        private void BtnDeleteShortcut_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is MenuItem menuItem && menuItem.DataContext is ShortcutItem itemToRemove)
-            {
-                customShortcuts.Remove(itemToRemove);
-                ShortcutStorage.SaveShortcuts(customShortcuts);
-
-                if (this.FindName("CustomShortcutsList") is ItemsControl listControl)
-                {
-                    listControl.ItemsSource = null;
-                    listControl.ItemsSource = customShortcuts;
-                }
-            }
-        }
-
-        // --- APP RELAUNCH & EXIT HANDLERS ---
-        private void Sidebar_ContextMenuOpening(object sender, ContextMenuEventArgs e)
-        {
-            // Suppress the sidebar context menu if right-clicking directly on a child element that handles its own context menu
-            if (
-                e.OriginalSource is FrameworkElement element
-                && element.ContextMenu != null
-                && element.ContextMenu != (sender as FrameworkElement)?.ContextMenu
-            )
-            {
-                e.Handled = true;
-            }
-        }
-
-        private void BtnRelaunch_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                string? exePath = Process.GetCurrentProcess().MainModule?.FileName;
-                if (!string.IsNullOrEmpty(exePath))
-                {
-                    // Sebelum relaunch, pastikan jika ada konfigurasi di memori yang belum tersimpan, simpan dulu!
-                    // SaveMySettings();
-
-                    // Jalankan proses baru
-                    Process.Start(
-                        new ProcessStartInfo { FileName = exePath, UseShellExecute = true }
-                    );
-
-                    // Langsung matikan proses saat ini secara tegas
-                    Environment.Exit(0); // Menggunakan Exit(0) lebih instan dibanding Shutdown() untuk relaunch
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine("Failed to relaunch application: " + ex.Message);
-            }
-        }
-
-        private void BtnExit_Click(object sender, RoutedEventArgs e)
-        {
-            Application.Current.Shutdown();
-        }
+        #region ==================== CONSTRUCTOR & INITIALIZATION ====================
 
         public MainWindow()
         {
-            InitCustomShortcuts();
+            InitSettingsAndShortcuts();
             InitializeComponent();
 
-            // --- Inisialisasi DispatcherTimer Throttling Sync Overlay (~60 FPS) ---
             syncThrottleTimer = new DispatcherTimer(
                 TimeSpan.FromMilliseconds(16),
                 DispatcherPriority.Render,
@@ -425,12 +328,9 @@ namespace findrbordr_native
             this.Loaded += MainWindow_Loaded;
             this.LocationChanged += (s, e) => UpdateParallaxOffset();
 
-            //get username
             UserProfileName = Environment.UserName;
-            // Set DataContext ke dirinya sendiri agar XAML bisa membaca properti
             this.DataContext = this;
 
-            // Memastikan setiap kali area WPF ditekan, Explorer langsung fokus
             this.PreviewMouseDown += (s, e) =>
             {
                 if (targetExplorerHwnd != IntPtr.Zero && IsWindow(targetExplorerHwnd))
@@ -442,11 +342,9 @@ namespace findrbordr_native
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            // Jalankan wallpaper loader secara asynchronous
             await LoadDesktopWallpaperAsync();
-
-            // Update posisi parallax setelah wallpaper siap
             UpdateParallaxOffset();
+            ApplyAppSettingsToUI();
         }
 
         protected override void OnSourceInitialized(EventArgs e)
@@ -465,13 +363,235 @@ namespace findrbordr_native
             source?.AddHook(WndProc);
 
             Dispatcher.BeginInvoke(
-                new Action(() =>
-                {
-                    RegisterWinEventHooks();
-                }),
+                new Action(() => RegisterWinEventHooks()),
                 DispatcherPriority.Render
             );
         }
+
+        #endregion
+
+        #region ==================== APP SETTINGS & SHORTCUTS LOGIC ====================
+
+        private void InitSettingsAndShortcuts()
+        {
+            try
+            {
+                appSettings = SettingsStorage.LoadSettings();
+                customShortcuts = appSettings.CustomShortcuts;
+
+                Dispatcher.BeginInvoke(
+                    new Action(() =>
+                    {
+                        if (this.FindName("CustomShortcutsList") is ItemsControl listControl)
+                        {
+                            listControl.ItemsSource = customShortcuts;
+                        }
+
+                        ApplyAppSettingsToUI();
+                    }),
+                    DispatcherPriority.Loaded
+                );
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Gagal memuat setting & shortcut: " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Menerapkan setting Dynamic Resource Brush & DropShadow dari JSON langsung ke UI
+        /// </summary>
+        private void ApplyAppSettingsToUI()
+        {
+            try
+            {
+                // Cari ColumnDefinition berdasarkan x:Name "SidebarColumn"
+                if (
+                    this.FindName("SidebarColumn") is ColumnDefinition sidebarCol
+                    && appSettings.SidebarWidth > 0
+                )
+                {
+                    sidebarCol.Width = new GridLength(appSettings.SidebarWidth);
+                }
+
+                // 1. Update Dynamic Resource Brushes XAML langsung dari JSON
+                if (!string.IsNullOrEmpty(appSettings.CapsuleBackgroundBrush))
+                {
+                    var capsuleColor = (Color)
+                        ColorConverter.ConvertFromString(appSettings.CapsuleBackgroundBrush);
+                    this.Resources["CapsuleBackgroundBrush"] = new SolidColorBrush(capsuleColor);
+                }
+
+                if (!string.IsNullOrEmpty(appSettings.MainTextBrush))
+                {
+                    var textColor = (Color)
+                        ColorConverter.ConvertFromString(appSettings.MainTextBrush);
+                    this.Resources["MainTextBrush"] = new SolidColorBrush(textColor);
+                }
+
+                if (!string.IsNullOrEmpty(appSettings.OuterFrameBrush))
+                {
+                    var outerColor = (Color)
+                        ColorConverter.ConvertFromString(appSettings.OuterFrameBrush);
+                    this.Resources["OuterFrameBrush"] = new SolidColorBrush(outerColor);
+                }
+
+                // 2. Terapkan DropShadow pada LeftSidebarGrid Shadow Border
+                if (
+                    this.FindName("LeftSidebarShadowBorder") is Border shadowBorder
+                    && appSettings.LeftSidebarGridShadow != null
+                )
+                {
+                    shadowBorder.Effect = new DropShadowEffect
+                    {
+                        BlurRadius = appSettings.LeftSidebarGridShadow.BlurRadius,
+                        Opacity = appSettings.LeftSidebarGridShadow.Opacity,
+                        ShadowDepth = appSettings.LeftSidebarGridShadow.ShadowDepth,
+                        Color = (Color)
+                            ColorConverter.ConvertFromString(
+                                appSettings.LeftSidebarGridShadow.ColorHex
+                            ),
+                    };
+                }
+
+                // 3. Terapkan Background pada Layer3Border
+                if (
+                    this.FindName("Layer3Border") is Border layer3Border
+                    && appSettings.Layer3BorderBackground != null
+                )
+                {
+                    var color = (Color)
+                        ColorConverter.ConvertFromString(
+                            appSettings.Layer3BorderBackground.ColorHex
+                        );
+                    layer3Border.Background = new SolidColorBrush(color);
+                }
+
+                // 4. Terapkan DropShadow ke CapsuleStyle Resource
+                if (
+                    this.Resources["CapsuleStyle"] is Style capsuleStyle
+                    && appSettings.CapsuleStyleShadow != null
+                )
+                {
+                    var shadow = new DropShadowEffect
+                    {
+                        BlurRadius = appSettings.CapsuleStyleShadow.BlurRadius,
+                        Opacity = appSettings.CapsuleStyleShadow.Opacity,
+                        ShadowDepth = appSettings.CapsuleStyleShadow.ShadowDepth,
+                        Color = (Color)
+                            ColorConverter.ConvertFromString(
+                                appSettings.CapsuleStyleShadow.ColorHex
+                            ),
+                    };
+
+                    var effectSetter = capsuleStyle
+                        .Setters.OfType<Setter>()
+                        .FirstOrDefault(s => s.Property == Border.EffectProperty);
+                    if (effectSetter != null)
+                    {
+                        capsuleStyle.Setters.Remove(effectSetter);
+                    }
+                    capsuleStyle.Setters.Add(new Setter(Border.EffectProperty, shadow));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Gagal menerapkan UI settings: " + ex.Message);
+            }
+        }
+
+        private void SaveAllSettings()
+        {
+            appSettings.CustomShortcuts = customShortcuts;
+            SettingsStorage.SaveSettings(appSettings);
+        }
+
+        private void DropZone_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+                e.Effects = DragDropEffects.Copy;
+            else
+                e.Effects = DragDropEffects.None;
+
+            e.Handled = true;
+        }
+
+        private void DropZone_Drop(object sender, DragEventArgs e)
+        {
+            e.Handled = true;
+
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[]? files = e.Data.GetData(DataFormats.FileDrop) as string[];
+                if (files != null && files.Length > 0)
+                {
+                    bool hasNewItems = false;
+                    foreach (string path in files)
+                    {
+                        bool isDuplicate = customShortcuts.Any(s =>
+                            s.Path.Equals(path, StringComparison.OrdinalIgnoreCase)
+                        );
+                        if (!isDuplicate)
+                        {
+                            string cleanTitle = GetFriendlyNameFromPath(path);
+                            customShortcuts.Add(
+                                new ShortcutItem { Title = cleanTitle, Path = path }
+                            );
+                            hasNewItems = true;
+                        }
+                    }
+
+                    if (hasNewItems)
+                    {
+                        SaveAllSettings();
+                        if (this.FindName("CustomShortcutsList") is ItemsControl listControl)
+                        {
+                            listControl.ItemsSource = null;
+                            listControl.ItemsSource = customShortcuts;
+                        }
+                    }
+                }
+            }
+        }
+
+        private string GetFriendlyNameFromPath(string path)
+        {
+            try
+            {
+                string name = System.IO.Path.GetFileNameWithoutExtension(path);
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    name = path.TrimEnd(
+                        System.IO.Path.DirectorySeparatorChar,
+                        System.IO.Path.AltDirectorySeparatorChar
+                    );
+                }
+                return name;
+            }
+            catch
+            {
+                return path;
+            }
+        }
+
+        private void BtnDeleteShortcut_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.DataContext is ShortcutItem itemToRemove)
+            {
+                customShortcuts.Remove(itemToRemove);
+                SaveAllSettings();
+
+                if (this.FindName("CustomShortcutsList") is ItemsControl listControl)
+                {
+                    listControl.ItemsSource = null;
+                    listControl.ItemsSource = customShortcuts;
+                }
+            }
+        }
+
+        #endregion
+
+        #region ==================== WIN32 EVENT HOOKS & ATTACHMENT ====================
 
         private void RegisterWinEventHooks()
         {
@@ -486,7 +606,6 @@ namespace findrbordr_native
                 0,
                 WINEVENT_OUTOFCONTEXT
             );
-
             foregroundHook = SetWinEventHook(
                 EVENT_SYSTEM_FOREGROUND,
                 EVENT_SYSTEM_FOREGROUND,
@@ -496,7 +615,6 @@ namespace findrbordr_native
                 0,
                 WINEVENT_OUTOFCONTEXT
             );
-
             destroyHook = SetWinEventHook(
                 EVENT_OBJECT_DESTROY,
                 EVENT_OBJECT_HIDE,
@@ -506,7 +624,6 @@ namespace findrbordr_native
                 0,
                 WINEVENT_OUTOFCONTEXT
             );
-
             showHook = SetWinEventHook(
                 EVENT_OBJECT_SHOW,
                 EVENT_OBJECT_SHOW,
@@ -516,7 +633,6 @@ namespace findrbordr_native
                 0,
                 WINEVENT_OUTOFCONTEXT
             );
-
             nameHook = SetWinEventHook(
                 EVENT_OBJECT_NAMECHANGE,
                 EVENT_OBJECT_NAMECHANGE,
@@ -530,51 +646,6 @@ namespace findrbordr_native
             TryFindAndAttachExplorer();
         }
 
-        protected override void OnClosed(EventArgs e)
-        {
-            base.OnClosed(e);
-
-            // Hentikan Throttle Timer
-            if (syncThrottleTimer != null)
-            {
-                syncThrottleTimer.Stop();
-                syncThrottleTimer = null;
-            }
-
-            // Cleanup hooks yang sudah ada sebelumnya
-            if (locationHook != IntPtr.Zero)
-            {
-                UnhookWinEvent(locationHook);
-                locationHook = IntPtr.Zero;
-            }
-            if (foregroundHook != IntPtr.Zero)
-            {
-                UnhookWinEvent(foregroundHook);
-                foregroundHook = IntPtr.Zero;
-            }
-            if (destroyHook != IntPtr.Zero)
-            {
-                UnhookWinEvent(destroyHook);
-                destroyHook = IntPtr.Zero;
-            }
-            if (showHook != IntPtr.Zero)
-            {
-                UnhookWinEvent(showHook);
-                showHook = IntPtr.Zero;
-            }
-            if (nameHook != IntPtr.Zero)
-            {
-                UnhookWinEvent(nameHook);
-                nameHook = IntPtr.Zero;
-            }
-
-            if (wshellInstance != null)
-            {
-                System.Runtime.InteropServices.Marshal.ReleaseComObject(wshellInstance);
-                wshellInstance = null;
-            }
-        }
-
         private void WinEventCallback(
             IntPtr hWinEventHook,
             uint eventType,
@@ -585,14 +656,16 @@ namespace findrbordr_native
             uint dwmsEventTime
         )
         {
-            if (idObject != OBJID_WINDOW)
+            if (idObject != OBJID_WINDOW || hwnd == IntPtr.Zero || !IsWindow(hwnd))
                 return;
 
-            // Filter: hanya proses jika hwnd valid
-            if (hwnd == IntPtr.Zero || !IsWindow(hwnd))
+            if (eventType == EVENT_OBJECT_LOCATIONCHANGE && hwnd == targetExplorerHwnd)
+            {
+                SyncOverlayPositionInternalDirect();
+                UpdateExplorerFocusState(targetExplorerHwnd);
                 return;
+            }
 
-            // 1. Jika Explorer ditutup / tersembunyi
             if (
                 (eventType == EVENT_OBJECT_DESTROY || eventType == EVENT_OBJECT_HIDE)
                 && hwnd == targetExplorerHwnd
@@ -606,10 +679,14 @@ namespace findrbordr_native
                 return;
             }
 
-            // 2. Jika ada perubahan jendela aktif di Windows (Foreground Event)
+            if (eventType == EVENT_OBJECT_NAMECHANGE && hwnd == targetExplorerHwnd)
+            {
+                SyncOverlayPosition();
+                return;
+            }
+
             if (eventType == EVENT_SYSTEM_FOREGROUND)
             {
-                // Panggil fungsi pembaru status fokus (Aktif / Inaktif)
                 UpdateExplorerFocusState(hwnd);
 
                 if (targetExplorerHwnd == IntPtr.Zero || IsCabinetWindow(hwnd))
@@ -624,282 +701,18 @@ namespace findrbordr_native
                     CheckAndUpdateTargetExplorer(hwnd);
                 }
             }
-            else if (
-                (eventType == EVENT_OBJECT_LOCATIONCHANGE || eventType == EVENT_OBJECT_NAMECHANGE)
-                && hwnd == targetExplorerHwnd
-            )
-            {
-                SyncOverlayPosition();
-            }
         }
 
-        // 1. Variabel pendukung Throttling (Taruh di level Class)
-        private string lastKnownFolderName = "Explorer";
-        private readonly Stopwatch pathCheckStopwatch = Stopwatch.StartNew();
-        private long lastPathCheckMs = -1000;
-        private const int PATH_CHECK_THROTTLE_MS = 300; // Throttle 300ms
-
-        // 2. Helper Method Ekstraksi Judul (Dibuat method tersendiri)
-        private static readonly Regex TabSuffixRegex = new Regex(
-            @" and \d+ more tabs",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase
-        );
-
-        private string GetExplorerFolderName(IntPtr hwnd)
+        private void SyncOverlayPositionInternalDirect()
         {
-            // Guard Clause Handle: Cegah P/Invoke ke API Win32 jika handle bernilai IntPtr.Zero atau sudah hancur
-            if (hwnd == IntPtr.Zero || !IsWindow(hwnd))
-                return "Explorer";
-
-            StringBuilder sbTitle = new StringBuilder(256);
-            int length = GetWindowText(hwnd, sbTitle, sbTitle.Capacity);
-
-            // Jika gagal mendapatkan text/titlenya kosong
-            if (length <= 0)
-                return "Explorer";
-
-            string rawTitle = sbTitle.ToString().Trim();
-            if (string.IsNullOrWhiteSpace(rawTitle))
-                return "Explorer";
-
-            string cleanTitle = TabSuffixRegex
-                .Replace(rawTitle, "")
-                .Replace(" - File Explorer", "")
-                .Replace(" - Windows Explorer", "")
-                .Replace(" and 1 more tab", "")
-                .Trim();
-
-            try
-            {
-                string cleanPath = cleanTitle.TrimEnd(
-                    Path.DirectorySeparatorChar,
-                    Path.AltDirectorySeparatorChar
-                );
-
-                string extractedName = Path.GetFileName(cleanPath);
-                return !string.IsNullOrWhiteSpace(extractedName) ? extractedName : cleanTitle;
-            }
-            catch
-            {
-                return cleanTitle;
-            }
-        }
-
-        // 3. Wrapper Throttling
-        private string GetExplorerFolderNameThrottled(IntPtr hwnd)
-        {
-            long currentMs = pathCheckStopwatch.ElapsedMilliseconds;
-
-            // Jika dipanggil terlalu sering (kurang dari 300ms), pakai hasil terakhir (cache)
-            if (currentMs - lastPathCheckMs < PATH_CHECK_THROTTLE_MS)
-            {
-                return lastKnownFolderName;
-            }
-
-            lastPathCheckMs = currentMs;
-            lastKnownFolderName = GetExplorerFolderName(hwnd);
-            return lastKnownFolderName;
-        }
-
-        private void UpdateExplorerFocusState(IntPtr activeHwnd)
-        {
-            // Cek apakah jendela yang aktif sekarang adalah Explorer target
-            bool isExplorerFocused = (
-                targetExplorerHwnd != IntPtr.Zero && activeHwnd == targetExplorerHwnd
-            );
-
-            Dispatcher.BeginInvoke(
-                new Action(() =>
-                {
-                    // Cari elemen Mac Dots dan Layer3Border jika x:Name di XAML sudah dipasang
-                    var dotClose = this.FindName("DotClose") as FrameworkElement;
-                    var dotMinimize = this.FindName("DotMinimize") as FrameworkElement;
-                    var dotMaximize = this.FindName("DotMaximize") as FrameworkElement;
-                    var layer3Border = this.FindName("Layer3Border") as Border;
-
-                    if (isExplorerFocused)
-                    {
-                        // 🟢 EXPLORER FOKUS: Tampilkan Warna Khas macOS & Kaca Transparan
-                        if (dotClose != null)
-                            AnimateBackground(dotClose, "#FF5F56");
-                        if (dotMinimize != null)
-                            AnimateBackground(dotMinimize, "#FFBD2E");
-                        if (dotMaximize != null)
-                            AnimateBackground(dotMaximize, "#27C93F");
-                        if (layer3Border != null)
-                            AnimateBackground(layer3Border, "#E6FFFFFF");
-                    }
-                    else
-                    {
-                        // ⚪ EXPLORER UNFOCUSED: Animasi Fade-Out ke Abu-abu & Solid White
-                        if (dotClose != null)
-                            AnimateBackground(dotClose, "#D0D0D0");
-                        if (dotMinimize != null)
-                            AnimateBackground(dotMinimize, "#D0D0D0");
-                        if (dotMaximize != null)
-                            AnimateBackground(dotMaximize, "#D0D0D0");
-                        if (layer3Border != null)
-                            AnimateBackground(layer3Border, "#FFFFFFFF");
-                    }
-                }),
-                DispatcherPriority.Render
-            );
-        }
-
-        private void CheckAndUpdateTargetExplorer(IntPtr foregroundHwnd)
-        {
-            if (IsCabinetWindow(foregroundHwnd) && IsWindowVisible(foregroundHwnd))
-            {
-                if (targetExplorerHwnd != foregroundHwnd)
-                {
-                    AttachToExplorer(foregroundHwnd);
-                }
-                else
-                {
-                    SyncOverlayPosition();
-                }
-            }
-            else
-            {
-                if (targetExplorerHwnd != IntPtr.Zero)
-                {
-                    if (!IsWindow(targetExplorerHwnd) || !IsWindowVisible(targetExplorerHwnd))
-                    {
-                        DetachAndHide();
-                    }
-                }
-            }
-        }
-
-        private void DetachAndHide()
-        {
-            targetExplorerHwnd = IntPtr.Zero;
-            IntPtr overlayHwnd = new WindowInteropHelper(this).Handle;
-
-            SetWindowLongPtr(overlayHwnd, GWL_HWNDPARENT, IntPtr.Zero);
-
-            if (Visibility == Visibility.Visible)
-            {
-                Hide();
-            }
-        }
-
-        private void TryFindAndAttachExplorer()
-        {
-            // 1. Cek dulu jendela aktif (Paling sering & paling cepat - 0ms)
-            IntPtr fgHwnd = GetForegroundWindow();
-            if (IsCabinetWindow(fgHwnd))
-            {
-                AttachToExplorer(fgHwnd);
-                return;
-            }
-
-            // 2. Cek apakah target Explorer lama kita masih hidup & terlihat (Mencegah EnumWindows)
-            if (
-                targetExplorerHwnd != IntPtr.Zero
-                && IsWindowVisible(targetExplorerHwnd)
-                && IsCabinetWindow(targetExplorerHwnd)
-            )
-            {
-                AttachToExplorer(targetExplorerHwnd);
-                return;
-            }
-
-            // 3. Fallback: Cari jendela Explorer lain hanya jika benar-benar perlu
-            IntPtr foundHwnd = IntPtr.Zero;
-            EnumWindows(
-                (hwnd, lParam) =>
-                {
-                    if (IsWindowVisible(hwnd) && IsCabinetWindow(hwnd))
-                    {
-                        foundHwnd = hwnd;
-                        return false; // Stop iterasi segera setelah ketemu 1
-                    }
-                    return true;
-                },
-                IntPtr.Zero
-            );
-
-            if (foundHwnd != IntPtr.Zero)
-            {
-                AttachToExplorer(foundHwnd);
-            }
-            else
-            {
-                DetachAndHide(); // Atau Hide()
-            }
-        }
-
-        // Di level class
-        private readonly StringBuilder classNameBuffer = new StringBuilder(256);
-
-        private bool IsCabinetWindow(IntPtr hwnd)
-        {
-            // 1. Cek validitas handle dulu (mencegah panggilan Win32 API sia-sia)
-            if (hwnd == IntPtr.Zero || !IsWindow(hwnd))
-                return false;
-
-            // 2. Bersihkan buffer tanpa alokasi memori baru
-            classNameBuffer.Clear();
-
-            // 3. Panggil API & pastikan return length > 0
-            int length = GetClassName(hwnd, classNameBuffer, classNameBuffer.Capacity);
-
-            return length > 0 && classNameBuffer.ToString() == "CabinetWClass";
-        }
-
-        private void AttachToExplorer(IntPtr explorerHwnd)
-        {
-            targetExplorerHwnd = explorerHwnd;
-            IntPtr overlayHwnd = new WindowInteropHelper(this).Handle;
-
-            SetWindowLongPtr(overlayHwnd, GWL_HWNDPARENT, targetExplorerHwnd);
-            SyncOverlayPosition();
-
-            // Pemicu warna langsung begitu berhasil ditempel
-            UpdateExplorerFocusState(GetForegroundWindow());
-        }
-
-        private void ScheduleUpdate(Action action)
-        {
-            // Jika sudah ada jadwal update yang mengantre, abaikan panggilan baru
-            if (updatePending)
-                return;
-
-            updatePending = true;
-            Dispatcher.BeginInvoke(
-                new Action(() =>
-                {
-                    action();
-                    updatePending = false; // Reset status setelah selesai dieksekusi
-                }),
-                DispatcherPriority.Render
-            );
-        }
-
-        // Method publik/eksternal kini bertindak sebagai throttler
-        private void SyncOverlayPosition()
-        {
-            isSyncPending = true;
-            if (syncThrottleTimer != null && !syncThrottleTimer.IsEnabled)
-            {
-                syncThrottleTimer.Start();
-            }
-        }
-
-        // Logika aktual pembaruan posisi DWM dimasukkan ke fungsi internal
-        private void SyncOverlayPositionInternal()
-        {
-            // Guard Clause Handle: Hentikan timer & sembunyikan jika HWND hilang/hancur
             if (
                 targetExplorerHwnd == IntPtr.Zero
                 || !IsWindow(targetExplorerHwnd)
                 || !IsWindowVisible(targetExplorerHwnd)
+                || !IsTargetExplorerProcessAlive(targetExplorerHwnd)
             )
             {
-                syncThrottleTimer?.Stop();
-                if (Visibility == Visibility.Visible)
-                    Hide();
+                DetachAndHide();
                 return;
             }
 
@@ -927,59 +740,311 @@ namespace findrbordr_native
                     rect.Top - 7,
                     width + 14,
                     height + 14,
-                    SWP_NOACTIVATE | SWP_SHOWWINDOW
+                    SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOCOPYBITS | SWP_DEFERERASE
+                );
+            }
+        }
+
+        private void CheckAndUpdateTargetExplorer(IntPtr foregroundHwnd)
+        {
+            if (IsCabinetWindow(foregroundHwnd) && IsWindowVisible(foregroundHwnd))
+            {
+                if (targetExplorerHwnd != foregroundHwnd)
+                    AttachToExplorer(foregroundHwnd);
+                else
+                    SyncOverlayPosition();
+            }
+            else
+            {
+                if (
+                    targetExplorerHwnd != IntPtr.Zero
+                    && (
+                        !IsWindow(targetExplorerHwnd)
+                        || !IsWindowVisible(targetExplorerHwnd)
+                        || !IsTargetExplorerProcessAlive(targetExplorerHwnd)
+                    )
+                )
+                {
+                    DetachAndHide();
+                }
+            }
+        }
+
+        private bool IsTargetExplorerProcessAlive(IntPtr hwnd)
+        {
+            if (hwnd == IntPtr.Zero || !IsWindow(hwnd))
+                return false;
+
+            try
+            {
+                uint processId = 0;
+                GetWindowThreadProcessId(hwnd, out processId);
+                if (processId == 0)
+                    return false;
+
+                using Process process = Process.GetProcessById((int)processId);
+                return !process.HasExited;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void DetachAndHide()
+        {
+            targetExplorerHwnd = IntPtr.Zero;
+            IntPtr overlayHwnd = new WindowInteropHelper(this).Handle;
+
+            SetWindowLongPtr(overlayHwnd, GWL_HWNDPARENT, IntPtr.Zero);
+
+            if (Visibility == Visibility.Visible)
+                Hide();
+        }
+
+        private void TryFindAndAttachExplorer()
+        {
+            IntPtr fgHwnd = GetForegroundWindow();
+            if (IsCabinetWindow(fgHwnd))
+            {
+                AttachToExplorer(fgHwnd);
+                return;
+            }
+
+            if (
+                targetExplorerHwnd != IntPtr.Zero
+                && IsWindowVisible(targetExplorerHwnd)
+                && IsCabinetWindow(targetExplorerHwnd)
+            )
+            {
+                AttachToExplorer(targetExplorerHwnd);
+                return;
+            }
+
+            IntPtr foundHwnd = IntPtr.Zero;
+            EnumWindows(
+                (hwnd, lParam) =>
+                {
+                    if (IsWindowVisible(hwnd) && IsCabinetWindow(hwnd))
+                    {
+                        foundHwnd = hwnd;
+                        return false;
+                    }
+                    return true;
+                },
+                IntPtr.Zero
+            );
+
+            if (foundHwnd != IntPtr.Zero)
+                AttachToExplorer(foundHwnd);
+            else
+                DetachAndHide();
+        }
+
+        private bool IsCabinetWindow(IntPtr hwnd)
+        {
+            if (hwnd == IntPtr.Zero || !IsWindow(hwnd))
+                return false;
+
+            classNameBuffer.Clear();
+            int length = GetClassName(hwnd, classNameBuffer, classNameBuffer.Capacity);
+            return length > 0 && classNameBuffer.ToString() == "CabinetWClass";
+        }
+
+        private void AttachToExplorer(IntPtr explorerHwnd)
+        {
+            targetExplorerHwnd = explorerHwnd;
+            IntPtr overlayHwnd = new WindowInteropHelper(this).Handle;
+
+            SetWindowLongPtr(overlayHwnd, GWL_HWNDPARENT, targetExplorerHwnd);
+            SyncOverlayPosition();
+
+            UpdateExplorerFocusState(GetForegroundWindow());
+        }
+
+        #endregion
+
+        #region ==================== WINDOW OVERLAY POSITION & SYNC ====================
+
+        private void SyncOverlayPosition()
+        {
+            isSyncPending = true;
+            if (syncThrottleTimer != null && !syncThrottleTimer.IsEnabled)
+            {
+                syncThrottleTimer.Start();
+            }
+        }
+
+        private void SyncOverlayPositionInternal()
+        {
+            if (
+                targetExplorerHwnd == IntPtr.Zero
+                || !IsWindow(targetExplorerHwnd)
+                || !IsWindowVisible(targetExplorerHwnd)
+                || !IsTargetExplorerProcessAlive(targetExplorerHwnd)
+            )
+            {
+                syncThrottleTimer?.Stop();
+                DetachAndHide();
+                return;
+            }
+
+            IntPtr overlayHwnd = new WindowInteropHelper(this).Handle;
+
+            if (
+                DwmGetWindowAttribute(
+                    targetExplorerHwnd,
+                    DWMWA_EXTENDED_FRAME_BOUNDS,
+                    out RECT rect,
+                    Marshal.SizeOf(typeof(RECT))
+                ) == 0
+            )
+            {
+                int width = rect.Right - rect.Left;
+                int height = rect.Bottom - rect.Top;
+
+                if (Visibility != Visibility.Visible)
+                    Show();
+
+                SetWindowPos(
+                    overlayHwnd,
+                    IntPtr.Zero,
+                    rect.Left - 7,
+                    rect.Top - 7,
+                    width + 14,
+                    height + 14,
+                    SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOCOPYBITS | SWP_DEFERERASE
                 );
 
-                UpdateParallaxOffset();
-
-                // Task runner title dengan guard check
                 IntPtr currentTarget = targetExplorerHwnd;
+                if (isTitleRefreshQueued)
+                    return;
+
+                isTitleRefreshQueued = true;
                 Task.Run(() =>
                 {
-                    // Pastikan handle masih valid sebelum mengeksekusi P/Invoke GetWindowText
-                    if (currentTarget == IntPtr.Zero || !IsWindow(currentTarget))
-                        return;
+                    try
+                    {
+                        if (currentTarget == IntPtr.Zero || !IsWindow(currentTarget))
+                            return;
 
-                    string folderName = GetExplorerFolderNameThrottled(currentTarget);
+                        string folderName = GetExplorerFolderNameThrottled(currentTarget);
+                        string normalizedName = FormatFolderDisplayName(folderName);
 
-                    Dispatcher.BeginInvoke(
-                        new Action(() =>
-                        {
-                            if (
-                                currentTarget == targetExplorerHwnd
-                                && TxtTitle != null
-                                && TxtTitle.Text != folderName
-                            )
+                        Dispatcher.BeginInvoke(
+                            new Action(() =>
                             {
-                                TxtTitle.Text = folderName;
-                            }
-                        })
-                    );
+                                isTitleRefreshQueued = false;
+
+                                if (
+                                    currentTarget == targetExplorerHwnd
+                                    && TxtTitle != null
+                                    && !string.Equals(
+                                        TxtTitle.Text,
+                                        normalizedName,
+                                        StringComparison.Ordinal
+                                    )
+                                )
+                                {
+                                    TxtTitle.Text = normalizedName;
+                                }
+                            })
+                        );
+                    }
+                    catch
+                    {
+                        isTitleRefreshQueued = false;
+                    }
                 });
             }
 
-            // Hentikan timer jika tidak ada queue pergerakan lanjutan
             if (!isSyncPending)
             {
                 syncThrottleTimer?.Stop();
             }
         }
 
+        private string GetExplorerFolderName(IntPtr hwnd)
+        {
+            if (hwnd == IntPtr.Zero || !IsWindow(hwnd))
+                return "Explorer";
+
+            StringBuilder sbTitle = new StringBuilder(256);
+            int length = GetWindowText(hwnd, sbTitle, sbTitle.Capacity);
+
+            if (length <= 0)
+                return "Explorer";
+
+            string rawTitle = sbTitle.ToString().Trim();
+            if (string.IsNullOrWhiteSpace(rawTitle))
+                return "Explorer";
+
+            string cleanTitle = TabSuffixRegex
+                .Replace(rawTitle, "")
+                .Replace(" - File Explorer", "")
+                .Replace(" - Windows Explorer", "")
+                .Replace(" and 1 more tab", "")
+                .Trim();
+
+            try
+            {
+                string cleanPath = cleanTitle.TrimEnd(
+                    Path.DirectorySeparatorChar,
+                    Path.AltDirectorySeparatorChar
+                );
+                string extractedName = Path.GetFileName(cleanPath);
+                string displayName = !string.IsNullOrWhiteSpace(extractedName)
+                    ? extractedName
+                    : cleanTitle;
+
+                return FormatFolderDisplayName(displayName);
+            }
+            catch
+            {
+                return FormatFolderDisplayName(cleanTitle);
+            }
+        }
+
+        private string FormatFolderDisplayName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return "Explorer";
+
+            if (name.Length <= MAX_FOLDER_TITLE_LENGTH)
+                return name;
+
+            return name.Substring(0, MAX_FOLDER_TITLE_LENGTH - 1) + "…";
+        }
+
+        private string GetExplorerFolderNameThrottled(IntPtr hwnd)
+        {
+            long currentMs = pathCheckStopwatch.ElapsedMilliseconds;
+
+            if (currentMs - lastPathCheckMs < PATH_CHECK_THROTTLE_MS)
+                return lastKnownFolderName;
+
+            lastPathCheckMs = currentMs;
+            lastKnownFolderName = GetExplorerFolderName(hwnd);
+            return lastKnownFolderName;
+        }
+
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
             if (msg == WM_MOUSEACTIVATE)
             {
-                // Jika target File Explorer valid, paksa Windows untuk memfokuskannya
                 if (targetExplorerHwnd != IntPtr.Zero && IsWindow(targetExplorerHwnd))
                 {
                     SetForegroundWindow(targetExplorerHwnd);
                 }
-
                 handled = true;
                 return (IntPtr)MA_NOACTIVATE;
             }
             return IntPtr.Zero;
         }
+
+        #endregion
+
+        #region ==================== WINDOW CONTROL & COMMANDS ====================
 
         private void SendKeysToExplorer(string keys)
         {
@@ -988,23 +1053,8 @@ namespace findrbordr_native
 
             try
             {
-                // 1. Paksa Windows fokus ke File Explorer terlebih dahulu
                 SetForegroundWindow(targetExplorerHwnd);
-
-                // 2. Jalankan SendKeys async dengan sedikit jeda agar Windows sempat memproses fokus
-                System
-                    .Threading.Tasks.Task.Delay(30)
-                    .ContinueWith(_ =>
-                    {
-                        try
-                        {
-                            wshellInstance?.SendKeys(keys);
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine("SendKeys error: " + ex.Message);
-                        }
-                    });
+                wshellInstance?.SendKeys(keys);
             }
             catch (Exception ex)
             {
@@ -1012,8 +1062,32 @@ namespace findrbordr_native
             }
         }
 
+        private async Task SendKeysToExplorerAsync(string keys, int delayMs = 30)
+        {
+            if (targetExplorerHwnd == IntPtr.Zero || !IsWindow(targetExplorerHwnd))
+                return;
+
+            try
+            {
+                SetForegroundWindow(targetExplorerHwnd);
+                if (delayMs > 0)
+                    await Task.Delay(delayMs);
+
+                wshellInstance?.SendKeys(keys);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("SendKeys async error: " + ex.Message);
+            }
+        }
+
+        private bool isNavigating = false;
+
         private async void Nav_Click(object sender, RoutedEventArgs e)
         {
+            if (isNavigating)
+                return;
+
             if (
                 sender is Button btn
                 && btn.Tag is string pathTarget
@@ -1021,6 +1095,7 @@ namespace findrbordr_native
                 && targetExplorerHwnd != IntPtr.Zero
             )
             {
+                isNavigating = true;
                 string targetPath = pathTarget;
 
                 if (Enum.TryParse(pathTarget, out Environment.SpecialFolder folder))
@@ -1032,22 +1107,16 @@ namespace findrbordr_native
 
                 try
                 {
-                    // 1. Paksa Window Explorer target fokus ke depan lebih dulu
-                    SetForegroundWindow(targetExplorerHwnd);
-                    await Task.Delay(50); // Jeda singkat agar fokus Windows OS berpindah
+                    await SendKeysToExplorerAsync("^l", 50);
+                    await Task.Delay(100);
 
-                    // 2. Kirim Ctrl + L ke tab yang SEDANG AKTIF di Explorer tersebut
-                    SendKeysToExplorer("^l");
-
-                    // 3. Jeda sedikit agar Address Bar ter-highlight sempurna
-                    await Task.Delay(80);
-
-                    // 4. Ketik path baru + Enter
-                    SendKeysToExplorer(escapedPath + "{ENTER}");
+                    await SendKeysToExplorerAsync(escapedPath + "{ENTER}", 20);
+                    await Task.Delay(500);
                 }
-                catch (Exception ex)
+                catch { }
+                finally
                 {
-                    // Logging / Error handling
+                    isNavigating = false;
                 }
             }
         }
@@ -1063,7 +1132,6 @@ namespace findrbordr_native
             {
                 switch (c)
                 {
-                    // Karakter khusus SendKeys yang WAJIB di-escape
                     case '{':
                         sb.Append("{{}");
                         break;
@@ -1094,12 +1162,9 @@ namespace findrbordr_native
                     case ']':
                         sb.Append("{]}");
                         break;
-
-                    // Tambahan karakter riskan agar lebih aman
                     case '"':
                         sb.Append("{\"}\"");
                         break;
-
                     default:
                         sb.Append(c);
                         break;
@@ -1155,17 +1220,13 @@ namespace findrbordr_native
         private void BtnClose_Click(object sender, RoutedEventArgs e)
         {
             if (targetExplorerHwnd != IntPtr.Zero && IsWindow(targetExplorerHwnd))
-            {
                 SendMessage(targetExplorerHwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
-            }
         }
 
         private void BtnMinimize_Click(object sender, RoutedEventArgs e)
         {
             if (targetExplorerHwnd != IntPtr.Zero && IsWindow(targetExplorerHwnd))
-            {
                 SendMessage(targetExplorerHwnd, WM_SYSCOMMAND, (IntPtr)SC_MINIMIZE, IntPtr.Zero);
-            }
         }
 
         private void BtnMaximize_Click(object sender, RoutedEventArgs e)
@@ -1181,9 +1242,10 @@ namespace findrbordr_native
             }
         }
 
-        // =========================================================================
-        // 1. OPTIMASI MEMORI: AdjustContrastAndSaturation (Zero Allocation + Unsafe)
-        // =========================================================================
+        #endregion
+
+        #region ==================== GRAPHICS & PARALLAX EFFECT ====================
+
         private BitmapSource AdjustContrastAndSaturation(
             BitmapSource original,
             float contrast,
@@ -1193,22 +1255,17 @@ namespace findrbordr_native
             int width = original.PixelWidth;
             int height = original.PixelHeight;
 
-            // Konversi gambar ke format Bgra32
             FormatConvertedBitmap converted = new FormatConvertedBitmap(
                 original,
                 PixelFormats.Bgra32,
                 null,
                 0
             );
-
             WriteableBitmap wBitmap = new WriteableBitmap(converted);
 
-            // Faktor pengali kontras
             float contrastFactor =
                 (259f * (contrast * 255f + 255f)) / (255f * (259f - contrast * 255f));
 
-            // 🟢 GUNAKAN UNSAFE POINTER: Membaca & menulis memori piksel secara LANGSUNG
-            // tanpa mengalokasikan byte[] array baru di RAM (0 Garbage Allocation!)
             wBitmap.Lock();
             unsafe
             {
@@ -1218,15 +1275,12 @@ namespace findrbordr_native
 
                 for (int i = 0; i < totalBytes; i += 4)
                 {
-                    // Akses memori BGRA secara langsung via pointer offset
                     float b = ptr[i] / 255f;
                     float g = ptr[i + 1] / 255f;
                     float r = ptr[i + 2] / 255f;
 
-                    // Hitung kecerahan awal piksel (Luminance)
                     float gray = 0.299f * r + 0.587f * g + 0.114f * b;
 
-                    // Ambang batas area gelap
                     if (gray <= 0.15f)
                     {
                         r = 1.0f;
@@ -1235,30 +1289,25 @@ namespace findrbordr_native
                     }
                     else
                     {
-                        // Formula Kontras
                         r = (contrastFactor * (r * 255f - 128f) + 128f) / 255f;
                         g = (contrastFactor * (g * 255f - 128f) + 128f) / 255f;
                         b = (contrastFactor * (b * 255f - 128f) + 128f) / 255f;
 
-                        // Formula Saturasi
                         float newGray = 0.299f * r + 0.587f * g + 0.114f * b;
                         r = newGray + (r - newGray) * saturation;
                         g = newGray + (g - newGray) * saturation;
                         b = newGray + (b - newGray) * saturation;
                     }
 
-                    // Tulis kembali nilai ke memori piksel (Clamp 0-255)
-                    ptr[i] = (byte)(Math.Max(0, Math.Min(255, b * 255f))); // Blue
-                    ptr[i + 1] = (byte)(Math.Max(0, Math.Min(255, g * 255f))); // Green
-                    ptr[i + 2] = (byte)(Math.Max(0, Math.Min(255, r * 255f))); // Red
-                    // ptr[i + 3] adalah Alpha (tetap)
+                    ptr[i] = (byte)(Math.Max(0, Math.Min(255, b * 255f)));
+                    ptr[i + 1] = (byte)(Math.Max(0, Math.Min(255, g * 255f)));
+                    ptr[i + 2] = (byte)(Math.Max(0, Math.Min(255, r * 255f)));
                 }
 
                 wBitmap.AddDirtyRect(new Int32Rect(0, 0, width, height));
             }
             wBitmap.Unlock();
-
-            wBitmap.Freeze(); // Freeze agar thread-safe dan hemat RAM
+            wBitmap.Freeze();
             return wBitmap;
         }
 
@@ -1266,7 +1315,6 @@ namespace findrbordr_native
         {
             try
             {
-                // 1. DECODING & OLAH GAMBAR DI BACKGROUND THREAD
                 BitmapSource? processedBitmap = await Task.Run(() =>
                 {
                     StringBuilder wallPaperPath = new StringBuilder(260);
@@ -1278,39 +1326,30 @@ namespace findrbordr_native
                     );
 
                     string path = wallPaperPath.ToString();
-
                     if (!File.Exists(path))
                         return null;
 
-                    // A. Decode Gambar
                     BitmapImage bitmap = new BitmapImage();
                     bitmap.BeginInit();
                     bitmap.UriSource = new Uri(path, UriKind.Absolute);
                     bitmap.CacheOption = BitmapCacheOption.OnLoad;
                     bitmap.DecodePixelWidth = 1024;
                     bitmap.EndInit();
-                    bitmap.Freeze(); // Wajib Freeze agar bisa diolah di fungsi bawah
+                    bitmap.Freeze();
 
-                    // B. Olah Kontras & Saturasi (Proses paling berat)
                     BitmapSource result = AdjustContrastAndSaturation(
                         bitmap,
                         contrast: 0.65f,
                         saturation: 2.1f
                     );
-
-                    // C. Freeze hasil Bitmap-nya agar aman dikirim ke UI Thread
                     if (result.CanFreeze)
-                    {
                         result.Freeze();
-                    }
 
                     return result;
                 });
 
-                // 2. PEMBUATAN BRUSH DI UI THREAD (Di luar Task.Run)
                 if (processedBitmap != null && ParallaxCanvas != null)
                 {
-                    // Buat ImageBrush langsung di UI Thread menggunakan bitmap yang sudah di-freeze
                     wallpaperBrush = new ImageBrush(processedBitmap)
                     {
                         Stretch = Stretch.Fill,
@@ -1320,7 +1359,6 @@ namespace findrbordr_native
                         RelativeTransform = new ScaleTransform(1.1, 1.1, 0.5, 0.5),
                     };
 
-                    // Pasang ke UI
                     ParallaxCanvas.Background = wallpaperBrush;
                 }
             }
@@ -1338,7 +1376,6 @@ namespace findrbordr_native
             try
             {
                 Point screenOrigin = ParallaxCanvas.PointFromScreen(new Point(0, 0));
-
                 wallpaperBrush.Viewport = new Rect(
                     screenOrigin.X,
                     screenOrigin.Y,
@@ -1349,63 +1386,130 @@ namespace findrbordr_native
             catch { }
         }
 
-        // 🟢 SAAT WINDOW FOKUS / AKTIF (Fade In ke Warna Asli)
-        private void MainWindow_Activated(object? sender, EventArgs e)
-        {
-            AnimateBackground(DotClose, "#FF5F56");
-            AnimateBackground(DotMinimize, "#FFBD2E");
-            AnimateBackground(DotMaximize, "#27C93F");
+        #endregion
 
-            AnimateBackground(Layer3Border, "#E6FFFFFF");
-        }
-
-        // ⚪ SAAT WINDOW UNFOCUSED / NON-AKTIF (Fade Out ke Abu-abu & Solid White)
-        private void MainWindow_Deactivated(object? sender, EventArgs e)
-        {
-            AnimateBackground(DotClose, "#D0D0D0");
-            AnimateBackground(DotMinimize, "#D0D0D0");
-            AnimateBackground(DotMaximize, "#D0D0D0");
-
-            AnimateBackground(Layer3Border, "#FFFFFFFF");
-        }
-
+        #region ==================== UI ANIMATIONS & FOCUS HANDLERS ====================
         /// <summary>
-        /// Helper universal untuk animasi transisi warna Background (Button, Border, dsb)
+        /// Animasi perubahan Opacity pada FrameworkElement secara mulus
         /// </summary>
+        private void AnimateOpacity(FrameworkElement element, double targetOpacity)
+        {
+            if (element == null)
+                return;
+
+            // Clamp nilai opacity antara 0.0 - 1.0
+            double clampedOpacity = Math.Max(0.0, Math.Min(1.0, targetOpacity));
+
+            DoubleAnimation opacityAnimation = new DoubleAnimation
+            {
+                To = clampedOpacity,
+                Duration = TimeSpan.FromSeconds(0.25),
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+            };
+
+            element.BeginAnimation(UIElement.OpacityProperty, opacityAnimation);
+        }
+
+        private SolidColorBrush CreateBrushWithOpacity(BrushSettings settings)
+        {
+            if (settings == null || string.IsNullOrEmpty(settings.ColorHex))
+                return new SolidColorBrush(Colors.Transparent);
+
+            Color baseColor = (Color)ColorConverter.ConvertFromString(settings.ColorHex);
+
+            // Jika user memasukkan hex 6 digit (#FFFFFF), paksa Alpha ke 255 (Full Solid)
+            baseColor.A = 255;
+
+            return new SolidColorBrush(baseColor);
+        }
+
+        private void UpdateExplorerFocusState(IntPtr activeHwnd)
+        {
+            if (isFocusStateRefreshQueued)
+                return;
+
+            isFocusStateRefreshQueued = true;
+
+            Dispatcher.BeginInvoke(
+                new Action(() =>
+                {
+                    isFocusStateRefreshQueued = false;
+
+                    IntPtr currentForeground = GetForegroundWindow();
+                    bool isExplorerFocused = (
+                        targetExplorerHwnd != IntPtr.Zero
+                        && currentForeground == targetExplorerHwnd
+                        && IsWindowVisible(targetExplorerHwnd)
+                    );
+
+                    if (isExplorerFocused == lastExplorerFocusVisualState)
+                        return;
+
+                    lastExplorerFocusVisualState = isExplorerFocused;
+
+                    var dotClose = this.FindName("DotClose") as FrameworkElement;
+                    var dotMinimize = this.FindName("DotMinimize") as FrameworkElement;
+                    var dotMaximize = this.FindName("DotMaximize") as FrameworkElement;
+                    var layer3Border = this.FindName("Layer3Border") as Border;
+
+                    if (isExplorerFocused)
+                    {
+                        if (dotClose != null)
+                            AnimateBackground(dotClose, "#FF5F56");
+                        if (dotMinimize != null)
+                            AnimateBackground(dotMinimize, "#FFBD2E");
+                        if (dotMaximize != null)
+                            AnimateBackground(dotMaximize, "#27C93F");
+                        if (layer3Border != null)
+                        {
+                            // SAAT FOKUS: Gunakan nilai Opacity murni dari setting JSON (misal: 0.8)
+                            double targetOpacity =
+                                appSettings.Layer3BorderBackground?.Opacity ?? 0.8;
+                            AnimateOpacity(layer3Border, targetOpacity);
+                        }
+                    }
+                    else
+                    {
+                        if (dotClose != null)
+                            AnimateBackground(dotClose, "#D0D0D0");
+                        if (dotMinimize != null)
+                            AnimateBackground(dotMinimize, "#D0D0D0");
+                        if (dotMaximize != null)
+                            AnimateBackground(dotMaximize, "#D0D0D0");
+                        if (layer3Border != null)
+                        {
+                            AnimateOpacity(layer3Border, 1.0);
+                        }
+                    }
+                }),
+                DispatcherPriority.Render
+            );
+        }
+
         private void AnimateBackground(FrameworkElement element, string targetHexColor)
         {
             if (element == null)
                 return;
 
             Color targetColor = (Color)ColorConverter.ConvertFromString(targetHexColor);
-
-            // 1. Ambil atau buat SolidColorBrush yang bisa dianimasikan
             SolidColorBrush? currentBrush = null;
 
-            if (element is System.Windows.Controls.Button btn)
-            {
+            if (element is Button btn)
                 currentBrush = btn.Background as SolidColorBrush;
-            }
-            else if (element is System.Windows.Controls.Border border)
-            {
+            else if (element is Border border)
                 currentBrush = border.Background as SolidColorBrush;
-            }
 
-            // Jika Brush belum ada atau Frozen (tidak bisa dianimasikan), buat baru yang Mutable
             if (currentBrush == null || currentBrush.IsFrozen)
             {
                 currentBrush = new SolidColorBrush(Colors.Transparent);
-
-                if (element is System.Windows.Controls.Button btnTarget)
+                if (element is Button btnTarget)
                     btnTarget.Background = currentBrush;
-                else if (element is System.Windows.Controls.Border borderTarget)
+                else if (element is Border borderTarget)
                     borderTarget.Background = currentBrush;
             }
 
-            // 2. Ambil warna saat ini sebagai titik start (agar transisi mulus meski ditengah animasi)
             Color currentColor = currentBrush.Color;
 
-            // 3. Buat animasi
             ColorAnimation colorAnimation = new ColorAnimation
             {
                 From = currentColor,
@@ -1414,8 +1518,134 @@ namespace findrbordr_native
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
             };
 
-            // 4. Jalankan animasi langsung pada Brush yang SAMA (Tanpa 'new SolidColorBrush' terus-menerus)
             currentBrush.BeginAnimation(SolidColorBrush.ColorProperty, colorAnimation);
         }
+
+        private void Sidebar_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            if (
+                e.OriginalSource is FrameworkElement element
+                && element.ContextMenu != null
+                && element.ContextMenu != (sender as FrameworkElement)?.ContextMenu
+            )
+            {
+                e.Handled = true;
+            }
+        }
+
+        private void BtnSettings_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 1. Dapatkan path lengkap file app_settings.json di lokasi jalannya executable (.exe)
+                string settingsPath = System.IO.Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    "app_settings.json"
+                );
+
+                // 2. Jika file belum ada, buat file default dulu agar tidak error saat dibuka
+                if (!System.IO.File.Exists(settingsPath))
+                {
+                    SaveAllSettings(); // Memanggil fungsi simpan yang sudah kamu buat sebelumnya
+                }
+
+                // 3. Jalankan file menggunakan aplikasi default sistem (Shell)
+                Process.Start(
+                    new ProcessStartInfo { FileName = settingsPath, UseShellExecute = true }
+                );
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "Gagal membuka file pengaturan: " + ex.Message,
+                    "Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
+            }
+        }
+
+        private void BtnReloadJson_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var reloadedSettings = SettingsStorage.LoadSettings();
+                appSettings = reloadedSettings;
+                customShortcuts =
+                    appSettings.CustomShortcuts ?? new ObservableCollection<ShortcutItem>();
+
+                if (this.FindName("CustomShortcutsList") is ItemsControl listControl)
+                {
+                    listControl.ItemsSource = null;
+                    listControl.ItemsSource = customShortcuts;
+                }
+
+                ApplyAppSettingsToUI();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Gagal reload JSON settings: " + ex.Message);
+            }
+        }
+
+        private void BtnRelaunch_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string? exePath = Process.GetCurrentProcess().MainModule?.FileName;
+                if (!string.IsNullOrEmpty(exePath))
+                {
+                    SaveAllSettings();
+                    Process.Start(
+                        new ProcessStartInfo { FileName = exePath, UseShellExecute = true }
+                    );
+                    Environment.Exit(0);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Failed to relaunch application: " + ex.Message);
+            }
+        }
+
+        private void BtnExit_Click(object sender, RoutedEventArgs e)
+        {
+            SaveAllSettings();
+            Application.Current.Shutdown();
+        }
+
+        #endregion
+
+        #region ==================== CLEANUP & DISPOSAL ====================
+
+        protected override void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
+
+            if (syncThrottleTimer != null)
+            {
+                syncThrottleTimer.Stop();
+                syncThrottleTimer = null;
+            }
+
+            if (locationHook != IntPtr.Zero)
+                UnhookWinEvent(locationHook);
+            if (foregroundHook != IntPtr.Zero)
+                UnhookWinEvent(foregroundHook);
+            if (destroyHook != IntPtr.Zero)
+                UnhookWinEvent(destroyHook);
+            if (showHook != IntPtr.Zero)
+                UnhookWinEvent(showHook);
+            if (nameHook != IntPtr.Zero)
+                UnhookWinEvent(nameHook);
+
+            if (wshellInstance != null)
+            {
+                Marshal.ReleaseComObject(wshellInstance);
+                wshellInstance = null;
+            }
+        }
+
+        #endregion
     }
 }

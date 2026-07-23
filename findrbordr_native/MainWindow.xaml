@@ -12,7 +12,12 @@
     WindowStyle="None">
 
     <Window.Resources>
-        <!--  Style untuk Thumb (Grip ScrollBar)  -->
+        <!--  Dynamic Resources Universal  -->
+        <SolidColorBrush x:Key="CapsuleBackgroundBrush" Color="White" />
+        <SolidColorBrush x:Key="MainTextBrush" Color="#2C3E50" />
+        <SolidColorBrush x:Key="OuterFrameBrush" Color="White" />
+
+        <!--  Style ScrollBar Thumb  -->
         <Style x:Key="ModernScrollThumb" TargetType="Thumb">
             <Setter Property="OverridesDefaultStyle" Value="True" />
             <Setter Property="IsTabStop" Value="False" />
@@ -41,7 +46,7 @@
             </Setter>
         </Style>
 
-        <!--  Style Utama ScrollBar  -->
+        <!--  Style ScrollBar Universal  -->
         <Style TargetType="ScrollBar">
             <Setter Property="Width" Value="8" />
             <Setter Property="Background" Value="Transparent" />
@@ -77,7 +82,6 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Trigger.EnterActions>
@@ -101,14 +105,13 @@
                         </BeginStoryboard>
                     </Trigger.ExitActions>
                 </Trigger>
-
                 <Trigger Property="IsMouseCaptureWithin" Value="True">
                     <Setter Property="Opacity" Value="1" />
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!--  Style Mac Dots Controls  -->
+        <!--  Style Window Traffic Light Dots (macOS Style)  -->
         <Style x:Key="MacDotStyle" TargetType="Button">
             <Setter Property="Width" Value="12" />
             <Setter Property="Height" Value="12" />
@@ -131,16 +134,24 @@
         <!--  Style Capsule Universal  -->
         <Style x:Key="CapsuleStyle" TargetType="Border">
             <Setter Property="Height" Value="36" />
-            <Setter Property="Background" Value="White" />
-            <Setter Property="BorderBrush" Value="#E0E0E0" />
-            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="{DynamicResource CapsuleBackgroundBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="16" />
             <Setter Property="VerticalAlignment" Value="Center" />
+            <!--  Masukkan LinearGradientBrush ke BorderBrush  -->
+            <Setter Property="BorderBrush">
+                <Setter.Value>
+                    <LinearGradientBrush>
+                        <GradientStop Offset="0.1" Color="#50FFFFFF" />
+                        <GradientStop Offset="1.0" Color="#00FFFFFF" />
+                    </LinearGradientBrush>
+                </Setter.Value>
+            </Setter>
             <Setter Property="Effect">
                 <Setter.Value>
                     <DropShadowEffect
                         BlurRadius="30"
-                        Opacity="0.15"
+                        Opacity="0.12"
                         ShadowDepth="5"
                         Color="#000000" />
                 </Setter.Value>
@@ -150,7 +161,7 @@
         <!--  Style Sidebar Item  -->
         <Style x:Key="SideBar" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="#1C1C1E" />
+            <Setter Property="Foreground" Value="{DynamicResource MainTextBrush}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
@@ -166,14 +177,17 @@
                             Padding="{TemplateBinding Padding}"
                             Background="{TemplateBinding Background}"
                             CornerRadius="8">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                            <ContentPresenter
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="Center"
+                                TextElement.Foreground="{TemplateBinding Foreground}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#15000000" />
+                                <Setter TargetName="border" Property="Background" Value="#20888888" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#25000000" />
+                                <Setter TargetName="border" Property="Background" Value="#40888888" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -184,7 +198,7 @@
         <!--  Style Tombol Navigasi  -->
         <Style x:Key="NavButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="#4A4A4A" />
+            <Setter Property="Foreground" Value="{DynamicResource MainTextBrush}" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="BorderThickness" Value="0" />
@@ -198,14 +212,17 @@
                             Padding="{TemplateBinding Padding}"
                             Background="{TemplateBinding Background}"
                             CornerRadius="10">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            <ContentPresenter
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                TextElement.Foreground="{TemplateBinding Foreground}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#15000000" />
+                                <Setter TargetName="border" Property="Background" Value="#20888888" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#25000000" />
+                                <Setter TargetName="border" Property="Background" Value="#40888888" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -216,7 +233,7 @@
 
     <Grid Background="Transparent">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="185" />
+            <ColumnDefinition x:Name="SidebarColumn" Width="185" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
@@ -227,19 +244,18 @@
 
         <!--  Outer Cosmetic Frame Border  -->
         <Border
+            x:Name="OuterCosmeticFrameBorder"
             Grid.Row="0"
             Grid.RowSpan="2"
             Grid.Column="0"
             Grid.ColumnSpan="2"
             Background="Transparent"
-            BorderBrush="White"
+            BorderBrush="{DynamicResource OuterFrameBrush}"
             BorderThickness="10"
             CornerRadius="23"
             IsHitTestVisible="False" />
 
-        <!--  =========================================================  -->
-        <!--  1. TOP TOOLBAR AREA  -->
-        <!--  =========================================================  -->
+        <!--  =================== 1. TOP TOOLBAR AREA ===================  -->
         <Grid
             Grid.Row="0"
             Grid.Column="1"
@@ -305,7 +321,7 @@
                     VerticalAlignment="Center"
                     FontSize="13"
                     FontWeight="SemiBold"
-                    Foreground="#2C3E50"
+                    Foreground="{DynamicResource MainTextBrush}"
                     Text="Explorer" />
             </Border>
 
@@ -375,7 +391,7 @@
                         Width="1"
                         Height="14"
                         Margin="2,0"
-                        Fill="#DCDCDC" />
+                        Fill="#808080" />
                     <Button
                         x:Name="BtnToggleDetailsPane"
                         Width="26"
@@ -447,9 +463,7 @@
             </Border>
         </Grid>
 
-        <!--  =========================================================  -->
-        <!--  2. LEFT SIDEBAR AREA (OPTIMIZED PARALLAX GLASS)  -->
-        <!--  =========================================================  -->
+        <!--  =================== 2. LEFT SIDEBAR AREA ===================  -->
         <Grid
             Grid.Row="0"
             Grid.RowSpan="2"
@@ -458,40 +472,31 @@
             ContextMenuOpening="Sidebar_ContextMenuOpening">
             <Grid.ContextMenu>
                 <ContextMenu>
+                    <MenuItem Click="BtnSettings_Click" Header="Settings" />
+                    <MenuItem Click="BtnReloadJson_Click" Header="Reload JSON" />
+                    <Separator />
                     <MenuItem Click="BtnRelaunch_Click" Header="Relaunch App" />
                     <Separator />
                     <MenuItem Click="BtnExit_Click" Header="Exit App" />
                 </ContextMenu>
             </Grid.ContextMenu>
 
-            <!--  LAYER 1: Base shadow & panel putih  -->
+            <!--  LAYER 1: Base Shadow Panel  -->
             <Border
-                Margin="8"
-                Background="White"
-                CornerRadius="20">
-                <Border.Effect>
-                    <DropShadowEffect
-                        BlurRadius="30"
-                        Opacity="0.1"
-                        ShadowDepth="0"
-                        Color="#000000" />
-                </Border.Effect>
-            </Border>
-
-            <Border
+                x:Name="LeftSidebarShadowBorder"
                 Margin="8"
                 Background="#8b8a8a"
                 CornerRadius="20">
                 <Border.Effect>
                     <DropShadowEffect
-                        BlurRadius="40"
-                        Opacity="0.09"
+                        BlurRadius="30"
+                        Opacity="0.12"
                         ShadowDepth="5"
                         Color="#000000" />
                 </Border.Effect>
             </Border>
 
-            <!--  LAYER 2: Wallpaper Parallax (Direct Blur Canvas, Flat Structure)  -->
+            <!--  LAYER 2: Wallpaper Parallax Glass Effect  -->
             <Border
                 x:Name="SidebarGlassBorder"
                 Margin="8"
@@ -509,22 +514,22 @@
                         </VisualBrush.Visual>
                     </VisualBrush>
                 </Border.OpacityMask>
-                <!-- Direct Element tanpa ekstra Grid nesting -->
                 <Grid x:Name="ParallaxCanvas" ClipToBounds="True">
                     <Grid.Effect>
-                        <BlurEffect Radius="70" RenderingBias="Quality" />
+                        <BlurEffect Radius="100" RenderingBias="Performance" />
                     </Grid.Effect>
                 </Grid>
             </Border>
 
-            <!--  LAYER 3: Foreground Controls UI  -->
-            <Border x:Name="Layer3Border"
+            <!--  LAYER 3: UI Controls & Dynamic Shortcuts  -->
+            <Border
+                x:Name="Layer3Border"
                 Margin="7"
                 BorderThickness="1.5"
                 CornerRadius="20">
                 <Border.BorderBrush>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop Offset="0.0" Color="#FFFFFFFF" />
+                        <GradientStop Offset="0.0" Color="#60FFFFFF" />
                         <GradientStop Offset="0.25" Color="#25FFFFFF" />
                         <GradientStop Offset="0.65" Color="#05FFFFFF" />
                         <GradientStop Offset="1.0" Color="#60FFFFFF" />
@@ -536,24 +541,26 @@
 
                 <ScrollViewer Margin="10,14" VerticalScrollBarVisibility="Auto">
                     <StackPanel x:Name="SidebarContainer">
-
                         <!--  Mac Traffic Controls  -->
                         <StackPanel Margin="4,0,0,14" Orientation="Horizontal">
-                            <Button x:Name="DotClose"
+                            <Button
+                                x:Name="DotClose"
                                 Background="#FF5F56"
                                 Click="BtnClose_Click"
                                 Style="{StaticResource MacDotStyle}" />
-                            <Button x:Name="DotMinimize"
+                            <Button
+                                x:Name="DotMinimize"
                                 Background="#FFBD2E"
                                 Click="BtnMinimize_Click"
                                 Style="{StaticResource MacDotStyle}" />
-                            <Button x:Name="DotMaximize"
+                            <Button
+                                x:Name="DotMaximize"
                                 Background="#27C93F"
                                 Click="BtnMaximize_Click"
                                 Style="{StaticResource MacDotStyle}" />
                         </StackPanel>
 
-                        <!--  Navigation Shortcuts Bawaan  -->
+                        <!--  Navigation Shortcuts Bawaan System  -->
                         <TextBlock
                             Margin="8,10,0,4"
                             FontSize="10"
@@ -576,7 +583,7 @@
                             Style="{StaticResource SideBar}"
                             Tag="MyDocuments" />
 
-                        <!--  CUSTOM SHORTCUTS (Data binding otomatis ke customShortcuts)  -->
+                        <!--  CUSTOM SHORTCUTS AREA (Data Binding dari JSON)  -->
                         <Border
                             x:Name="DropZoneBorder"
                             Padding="2"
@@ -585,7 +592,6 @@
                             CornerRadius="8"
                             PreviewDragOver="DropZone_DragOver"
                             PreviewDrop="DropZone_Drop">
-
                             <ItemsControl x:Name="CustomShortcutsList" ItemsSource="{Binding CustomShortcuts}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -618,7 +624,7 @@
                             Tag="UserProfile" />
                         <Button
                             Click="Nav_Click"
-                            Content="System Disk"
+                            Content="This PC"
                             Style="{StaticResource SideBar}"
                             Tag="shell:::{20D04FE0-3AEA-1069-A2D8-08002B30309D}" />
                     </StackPanel>
