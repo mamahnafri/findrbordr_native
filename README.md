@@ -15,6 +15,7 @@ Aplikasi WPF C# berbasis Windows yang menempel (*overlay*) secara presisi di ata
 
 *Klik gambar di atas untuk menonton cuplikan demonstrasi fungsionalitas FindrBordr Native di YouTube.*
 
+![Preview](dark.webp)
 ![Preview](ss.jpg)
 ![Preview](ss2.jpg)
 
@@ -99,7 +100,7 @@ Digunakan untuk mengirimkan perintah kontrol navigasi dari tombol *overlay* ke F
 
 ## 🗺️ Roadmap & To-Do
 
-- [ ] 🌙 Menambahkan opsi **Dark Mode**
+- [ ] 🌙 Memperbaiki opsi **Dark Mode**
 - [ ] 🎯 Memperbaiki manajemen fokus jendela File Explorer saat diklik
 - [ ] 🧪 Mengimplementasikan efek *refraction* pada bagian sidebar
 - [ ] 🔀 Fitur kustomisasi posisi untuk tombol toolbar dan *custom shortcut*
