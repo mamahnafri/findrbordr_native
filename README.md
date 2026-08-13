@@ -15,18 +15,28 @@ A C# WPF application for Windows that seamlessly attaches as a precise overlay o
 
 *Click the image above to watch a video demonstration of FindrBordr Native on YouTube.*
 
-![Preview](dark.webp)
-![Preview](ss.jpg)
-![Preview](ss2.jpg)
 <table>
   <tr>
     <td align="center">
-      <img src="dark.webp" width="300"><br>
-      <b>Gambar 1: Dark Theme</b>
+      <img src="Assets/27day.webp" width="500"><br>
+      <b>Gambar 1: os27 Light Theme</b>
     </td>
     <td align="center">
-      <img src="ss.jpg" width="300"><br>
-      <b>Gambar 2: Light Theme</b>
+      <img src="Assets/27night.webp" width="500"><br>
+      <b>Gambar 2: os27 Dark Theme</b>
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="Assets/26day.jpg" width="500"><br>
+      <b>Gambar 1: os26 Light Theme</b>
+    </td>
+    <td align="center">
+      <img src="Assets/26night.webp" width="500"><br>
+      <b>Gambar 2: os26 Dark Theme</b>
     </td>
   </tr>
 </table>
