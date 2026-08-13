@@ -1,0 +1,826 @@
+﻿<Grid
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="Transparent">
+
+    <Grid.Resources>
+            <!--  Dynamic Resources  -->
+            <SolidColorBrush x:Key="CapsuleBackgroundBrush" Color="White" />
+            <SolidColorBrush x:Key="MainTextBrush" Color="#2C3E50" />
+            <SolidColorBrush x:Key="OuterFrameBrush" Color="White" />
+
+            <!--  MenuItem  -->
+            <Style x:Key="ModernMenuItemStyle" TargetType="MenuItem">
+                <Setter Property="Padding" Value="4,4,4,4" />
+                <Setter Property="Foreground" Value="{DynamicResource MainTextBrush}" />
+                <Setter Property="FontSize" Value="13" />
+                <Style.Triggers>
+                    <!--  Menu Hover  -->
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource CapsuleBackgroundBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource CapsuleBackgroundBrush}" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <!--  ContextMenu  -->
+            <Style x:Key="ModernContextMenuStyle" TargetType="ContextMenu">
+                <Setter Property="Background" Value="{DynamicResource CapsuleBackgroundBrush}" />
+                <Setter Property="HasDropShadow" Value="True" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ContextMenu">
+                            <Border
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="#888888"
+                                BorderThickness="1.5"
+                                CornerRadius="6">
+                                <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--  Style ScrollBar Thumb  -->
+            <Style x:Key="ModernScrollThumb" TargetType="Thumb">
+                <Setter Property="OverridesDefaultStyle" Value="True" />
+                <Setter Property="IsTabStop" Value="False" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Thumb">
+                            <Rectangle
+                                x:Name="rectangle"
+                                Width="5"
+                                Margin="0,2,2,2"
+                                HorizontalAlignment="Right"
+                                Fill="#60000000"
+                                RadiusX="2.5"
+                                RadiusY="2.5" />
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="rectangle" Property="Fill" Value="#A0000000" />
+                                    <Setter TargetName="rectangle" Property="Width" Value="7" />
+                                </Trigger>
+                                <Trigger Property="IsDragging" Value="True">
+                                    <Setter TargetName="rectangle" Property="Fill" Value="#C0000000" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--  Style ScrollBar Universal  -->
+            <Style TargetType="ScrollBar">
+                <Setter Property="Width" Value="8" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Opacity" Value="0" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Grid
+                                x:Name="Bg"
+                                Background="Transparent"
+                                SnapsToDevicePixels="true">
+                                <Track
+                                    x:Name="PART_Track"
+                                    IsDirectionReversed="true"
+                                    IsEnabled="{TemplateBinding IsMouseOver}">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton
+                                            Command="{x:Static ScrollBar.PageUpCommand}"
+                                            Focusable="False"
+                                            Opacity="0" />
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton
+                                            Command="{x:Static ScrollBar.PageDownCommand}"
+                                            Focusable="False"
+                                            Opacity="0" />
+                                    </Track.IncreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb Style="{StaticResource ModernScrollThumb}" />
+                                    </Track.Thumb>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Trigger.EnterActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation
+                                        Storyboard.TargetProperty="Opacity"
+                                        To="1"
+                                        Duration="0:0:0.2" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </Trigger.EnterActions>
+                        <Trigger.ExitActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation
+                                        Storyboard.TargetProperty="Opacity"
+                                        To="0"
+                                        Duration="0:0:0.5" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </Trigger.ExitActions>
+                    </Trigger>
+                    <Trigger Property="IsMouseCaptureWithin" Value="True">
+                        <Setter Property="Opacity" Value="1" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <!--  Style Window Traffic Light Dots (macOS Style)  -->
+            <Style x:Key="MacDotStyle" TargetType="Button">
+                <Setter Property="Width" Value="13" />
+                <Setter Property="Height" Value="13" />
+                <Setter Property="Margin" Value="3,0" />
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Ellipse x:Name="dot" Fill="{TemplateBinding Background}" />
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="dot" Property="Opacity" Value="0.8" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--  Style Capsule Universal  -->
+            <Style x:Key="CapsuleStyle" TargetType="Border">
+                <Setter Property="Height" Value="36" />
+                <Setter Property="Background" Value="{DynamicResource CapsuleBackgroundBrush}" />
+                <Setter Property="BorderThickness" Value="1.5" />
+                <Setter Property="CornerRadius" Value="16" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="BorderBrush">
+                    <Setter.Value>
+                    <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+            <!-- 
+                 Efek Tebal di Samping, Tipis di Atas/Bawah
+                 Warna yang digunakan harus lebih gelap daripada background,
+                 dan menjadi transparan di puncak.
+            -->
+            
+            <!-- 1. Puncak Atas: Sangat Pudar / Transparan (Tipis) -->
+            <GradientStop Offset="0.0" Color="#20ffffff" /> <!-- Alpha 00 (Transparan) -->
+            
+            <!-- 2. Transisi Atas: Mulai Pudar -->
+            <GradientStop Offset="0.1" Color="#30ffffff" /> <!-- Alpha 20 (Sangat Tipis) -->
+
+            <!-- 3. Sisi Kiri/Kanan: Warna Penuh (Mulai dari sini tampak Tebal) -->
+            <!-- Kami mengatur transisi agar warna penuh dimulai setelah puncak sudut -->
+            <GradientStop Offset="0.3" Color="#80ffffff" /> <!-- Alpha FF (Penuh) -->
+            
+            <!-- 4. Tetap Warna Penuh di Samping -->
+            <GradientStop Offset="0.7" Color="#80ffffff" /> <!-- Alpha FF (Penuh) -->
+
+            <!-- 5. Transisi Bawah: Mulai Pudar Kembali -->
+            <GradientStop Offset="0.9" Color="#30ffffff" /> <!-- Alpha 20 (Sangat Tipis) -->
+            
+            <!-- 6. Dasar Bawah: Sangat Pudar / Transparan (Tipis) -->
+            <GradientStop Offset="1.0" Color="#20ffffff" /> <!-- Alpha 00 (Transparan) -->
+        </LinearGradientBrush>
+                </Setter.Value>
+                </Setter>
+                <Setter Property="Effect">
+                    <Setter.Value>
+                        <DropShadowEffect
+                            BlurRadius="20"
+                            Opacity="0.1"
+                            ShadowDepth="0"
+                            Color="#000000" />
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--  Style Sidebar Item  -->
+            <Style x:Key="SideBar" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource MainTextBrush}" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontWeight" Value="Medium" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
+                <Setter Property="Padding" Value="10,6" />
+                <Setter Property="Margin" Value="0,2" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="Tag" Value="" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border
+                                x:Name="border"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="8">
+                                <ContentPresenter
+                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalAlignment="Center"
+                                    TextElement.Foreground="{TemplateBinding Foreground}" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="border" Property="Background" Value="#20888888" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="border" Property="Background" Value="#40888888" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--  Style Tombol Navigasi  -->
+            <Style x:Key="NavButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource MainTextBrush}" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="Margin" Value="2.5,0" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border
+                                x:Name="border"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="10">
+                                <ContentPresenter
+                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    TextElement.Foreground="{TemplateBinding Foreground}" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="border" Property="Background" Value="#20888888" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="border" Property="Background" Value="#40888888" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+    </Grid.Resources>
+
+    <Grid Background="Transparent">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="SidebarColumn" Width="185" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="46" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Outer Cosmetic Frame Border  -->
+        <Border
+            x:Name="OuterCosmeticFrameBorder"
+            Grid.Row="0"
+            Grid.RowSpan="2"
+            Grid.Column="0"
+            Grid.ColumnSpan="2"
+            Background="Transparent"
+            BorderBrush="{DynamicResource OuterFrameBrush}"
+            BorderThickness="10"
+            CornerRadius="26"
+            IsHitTestVisible="False" />
+
+        <!--  =================== TOP TOOLBAR AREA (REMADE WITH SVG PATHS) ===================  -->
+        <Grid
+            x:Name="ToolbarGrid"
+            Grid.Row="0"
+            Grid.Column="1"
+            Margin="8,2,0,4"
+            Background="{x:Null}">
+            <Grid.ContextMenu>
+                <ContextMenu Style="{StaticResource ModernContextMenuStyle}">
+                    <MenuItem Header="Settings" Style="{StaticResource ModernMenuItemStyle}" />
+                    <MenuItem Header="Apply Settings" Style="{StaticResource ModernMenuItemStyle}" />
+                    <Separator Margin="4,1" Background="#333333" />
+                    <MenuItem Header="Relaunch App" Style="{StaticResource ModernMenuItemStyle}" />
+                    <Separator Margin="4,1" Background="#333333" />
+                    <MenuItem Header="Exit App" Style="{StaticResource ModernMenuItemStyle}" />
+                </ContextMenu>
+            </Grid.ContextMenu>
+
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!--  1. CAPSULE NAVIGASI (Back, Up/Separator, Forward)  -->
+            <Border
+                Grid.Column="0"
+                Margin="4,0,12,0"
+                Padding="4,0"
+                Style="{StaticResource CapsuleStyle}">
+                <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                    <!--  Back  -->
+                    <Button
+                        x:Name="BtnBack"
+                        Width="28"
+                        Height="26"
+                        Style="{StaticResource NavButtonStyle}"
+                        Tag="%{LEFT}"
+                        ToolTip="Back">
+                        <Path
+                            Data="M 10,4 L 4,10 L 10,16"
+                            Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                            StrokeEndLineCap="Round"
+                            StrokeLineJoin="Round"
+                            StrokeStartLineCap="Round"
+                            StrokeThickness="2" />
+                    </Button>
+
+                    <Button
+                        x:Name="BtnUp"
+                        Width="4"
+                        Height="24"
+                        Content="|"
+                        FontSize="18"
+                        FontWeight="Regular"
+                        Style="{StaticResource NavButtonStyle}"
+                        Tag="%{UP}"
+                        ToolTip="Up" />
+
+                    <!--  Forward  -->
+                    <Button
+                        x:Name="BtnForward"
+                        Width="28"
+                        Height="26"
+                        Style="{StaticResource NavButtonStyle}"
+                        Tag="%{RIGHT}"
+                        ToolTip="Forward">
+                        <Path
+                            Data="M 6,4 L 12,10 L 6,16"
+                            Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                            StrokeEndLineCap="Round"
+                            StrokeLineJoin="Round"
+                            StrokeStartLineCap="Round"
+                            StrokeThickness="2" />
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <!--  TITLE BAR  -->
+            <Border Grid.Column="1">
+                <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                    <TextBlock
+                        x:Name="TxtTitle"
+                        FontSize="13"
+                        FontWeight="SemiBold"
+                        Foreground="{DynamicResource MainTextBrush}"
+                        Text="Applications" />
+                </StackPanel>
+            </Border>
+
+            <!--  2. CAPSULE VIEW MODES (Icons, List, Columns, Gallery)  -->
+            <Border
+                Grid.Column="2"
+                Margin="12,0,4,0"
+                Padding="4,0"
+                Style="{StaticResource CapsuleStyle}">
+                <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                    <!--  Grid / Icons View (4-Grid)  -->
+                    <Button
+                        x:Name="BtnViewIcons"
+                        Width="28"
+                        Height="26"
+                        Style="{StaticResource NavButtonStyle}"
+                        Tag="^+3"
+                        ToolTip="Icons View">
+                        <Path Data="M 3,3 h 5 v 5 h -5 z M 10,3 h 5 v 5 h -5 z M 3,10 h 5 v 5 h -5 z M 10,10 h 5 v 5 h -5 z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    </Button>
+
+                    <!--  List View  -->
+                    <Button
+                        x:Name="BtnViewDetails"
+                        Width="28"
+                        Height="26"
+                        Style="{StaticResource NavButtonStyle}"
+                        Tag="^+6"
+                        ToolTip="Details View">
+                        <Path
+                            Data="M 3,4 h 2 M 8,4 h 9 M 3,9 h 2 M 8,9 h 9 M 3,14 h 2 M 8,14 h 9"
+                            Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                            StrokeEndLineCap="Round"
+                            StrokeStartLineCap="Round"
+                            StrokeThickness="2" />
+                    </Button>
+
+                    <Rectangle
+                        Width="1"
+                        Height="12"
+                        Margin="1,0"
+                        Fill="#30000000" />
+
+                    <!--  Columns Pane View  -->
+                    <Button
+                        x:Name="BtnViewColumns"
+                        Width="28"
+                        Height="26"
+                        Style="{StaticResource NavButtonStyle}"
+                        Tag="^+7"
+                        ToolTip="Columns View">
+
+                        <Path
+                            Data="M 3,3 H 15 A 1,1 0 0 1 16,4 V 14 A 1,1 0 0 1 15,15 H 3 A 1,1 0 0 1 2,14 V 4 A 1,1 0 0 1 3,3 Z M 7,3 V 15 M 11,3 V 15"
+                            Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                            StrokeThickness="1.5" />
+                    </Button>
+
+                    <!--  Gallery / Filmstrip View  -->
+                    <Button
+                        x:Name="BtnViewGallery"
+                        Width="28"
+                        Height="26"
+                        Style="{StaticResource NavButtonStyle}"
+                        Tag="^+1"
+                        ToolTip="Gallery View">
+                        <Path
+                            Data="M 3,3 H 15 A 1,1 0 0 1 16,4 V 11 A 1,1 0 0 1 15,12 H 3 A 1,1 0 0 1 2,11 V 4 A 1,1 0 0 1 3,3 Z M 2,15 h 2 M 6,15 h 2 M 10,15 h 2 M 14,15 h 2"
+                            Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                            StrokeThickness="1.5" />
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <!--  3. CAPSULE GROUPING / SORTING  -->
+            <Border
+                Grid.Column="3"
+                Margin="4,0,4,0"
+                Padding="4,0"
+                Style="{StaticResource CapsuleStyle}">
+                <Button
+                    x:Name="BtnSort"
+                    Width="36"
+                    Height="24"
+                    Style="{StaticResource NavButtonStyle}"
+                    Tag="%p"
+                    ToolTip="Sort &amp; Group Options">
+                    <Viewbox Width="26" Height="18">
+                        <Path
+                            Data="M 2 3 H 22 M 2 13 H 22 M 3 6 H 7 A 1 1 0 0 1 8 7 V 10 A 1 1 0 0 1 7 11 H 3 A 1 1 0 0 1 2 10 V 7 A 1 1 0 0 1 3 6 Z M 10 6 H 14 A 1 1 0 0 1 15 7 V 10 A 1 1 0 0 1 14 11 H 10 A 1 1 0 0 1 9 10 V 7 A 1 1 0 0 1 10 6 Z M 17 6 H 21 A 1 1 0 0 1 22 7 V 10 A 1 1 0 0 1 21 11 H 17 A 1 1 0 0 1 16 10 V 7 A 1 1 0 0 1 17 6 Z M 3 16 H 7 A 1 1 0 0 1 8 17 V 20 A 1 1 0 0 1 7 21 H 3 A 1 1 0 0 1 2 20 V 17 A 1 1 0 0 1 3 16 Z M 10 16 H 14 A 1 1 0 0 1 15 17 V 20 A 1 1 0 0 1 14 21 H 10 A 1 1 0 0 1 9 20 V 17 A 1 1 0 0 1 10 16 Z M 17 16 H 21 A 1 1 0 0 1 22 17 V 20 A 1 1 0 0 1 21 21 H 17 A 1 1 0 0 1 16 20 V 17 A 1 1 0 0 1 17 16 Z M 28 10 L 31.5 13.5 L 35 10"
+                            Stroke="{DynamicResource MainTextBrush}"
+                            StrokeEndLineCap="Round"
+                            StrokeLineJoin="Round"
+                            StrokeStartLineCap="Round"
+                            StrokeThickness="1.8" />
+                    </Viewbox>
+                </Button>
+            </Border>
+
+            <!--  4. CAPSULE ACTIONS (Share, Tag, More Options)  -->
+            <Border
+                Grid.Column="4"
+                Margin="4,0,4,0"
+                Padding="4,0"
+                Style="{StaticResource CapsuleStyle}">
+                <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                    <!--  Share Icon  -->
+                    <Button
+                        x:Name="BtnShare"
+                        Width="28"
+                        Height="26"
+                        Style="{StaticResource NavButtonStyle}"
+                        Tag="+%p"
+                        ToolTip="Share">
+                        <Path
+                            Data="M 9,2 L 9,11 M 9,2 L 6,5 M 9,2 L 12,5 M 3,8 V 15 A 1,1 0 0 0 4,16 H 14 A 1,1 0 0 0 15,15 V 8"
+                            Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                            StrokeEndLineCap="Round"
+                            StrokeLineJoin="Round"
+                            StrokeStartLineCap="Round"
+                            StrokeThickness="1.5" />
+                    </Button>
+
+                    <!--  Tag Icon  -->
+                    <Button
+                        x:Name="BtnTag"
+                        Width="28"
+                        Height="26"
+                        Style="{StaticResource NavButtonStyle}"
+                        Tag="%{ENTER}"
+                        ToolTip="Edit Tags">
+                        <Path
+                            Data="M 4,2 H 9 L 16,9 A 1,1 0 0 1 16,10.5 L 10.5,16 A 1,1 0 0 1 9,16 L 2,9 V 4 A 2,2 0 0 1 4,2 Z M 5.5,5.5 A 0.5,0.5 0 1 0 5.5,5.6 Z"
+                            Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                            StrokeLineJoin="Round"
+                            StrokeThickness="1.5" />
+                    </Button>
+
+                    <!--  More / Action Options (...)  -->
+                    <Button
+                        x:Name="BtnFolderOptions"
+                        Width="28"
+                        Height="26"
+                        Style="{StaticResource NavButtonStyle}"
+                        ToolTip="More Action Options">
+                        <Path
+                            Data="M 3,9 a 1.5,1.5 0 1,1 0,0.1 M 9,9 a 1.5,1.5 0 1,1 0,0.1 M 15,9 a 1.5,1.5 0 1,1 0,0.1"
+                            Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                            StrokeThickness="2" />
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <!--  5. CAPSULE SEARCH  -->
+            <Border
+                Grid.Column="5"
+                Width="36"
+                Height="36"
+                Margin="4,0,8,0"
+                VerticalAlignment="Center"
+                Style="{StaticResource CapsuleStyle}">
+                <Button
+                    x:Name="BtnSearch"
+                    Width="28"
+                    Height="28"
+                    HorizontalContentAlignment="Center"
+                    Style="{StaticResource NavButtonStyle}"
+                    Tag="^f"
+                    ToolTip="Search (Ctrl+F)">
+                    <Path
+                        Data="M 11,11 L 16,16 M 12.5,7 A 5.5,5.5 0 1,1 1.5,7 A 5.5,5.5 0 0,1 12.5,7 Z"
+                        Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                        StrokeStartLineCap="Round"
+                        StrokeThickness="1.8" />
+                </Button>
+            </Border>
+        </Grid>
+
+        <!--  =================== 2. LEFT SIDEBAR AREA ===================  -->
+
+        <Grid
+            x:Name="SidebarGrid"
+            Grid.Row="0"
+            Grid.RowSpan="2"
+            Grid.Column="0"
+            Margin="0,0,0,0">
+            <Grid.ContextMenu>
+                <ContextMenu Style="{StaticResource ModernContextMenuStyle}">
+                    <MenuItem Header="Settings" Style="{StaticResource ModernMenuItemStyle}" />
+                    <MenuItem Header="Apply Settings" Style="{StaticResource ModernMenuItemStyle}" />
+                    <Separator Margin="4,1" Background="#333333" />
+                    <MenuItem Header="Relaunch App" Style="{StaticResource ModernMenuItemStyle}" />
+                    <Separator Margin="4,1" Background="#333333" />
+                    <MenuItem Header="Exit App" Style="{StaticResource ModernMenuItemStyle}" />
+                </ContextMenu>
+            </Grid.ContextMenu>
+
+            <!--  LAYER 1: Base Shadow Panel  -->
+            <Border
+                x:Name="LeftSidebarShadowBorder"
+                Margin="6,6,0,6"
+                Background="{DynamicResource CapsuleBackgroundBrush}"
+                CornerRadius="24">
+                <Border.Effect>
+                    <DropShadowEffect
+                        BlurRadius="25"
+                        Direction="0"
+                        Opacity="0.12"
+                        ShadowDepth="7"
+                        Color="#000000" />
+                </Border.Effect>
+            </Border>
+
+            <!--  LAYER 2: Wallpaper Parallax Glass Effect  -->
+            <Border
+                x:Name="SidebarGlassBorder"
+                Margin="6,6,0,6"
+                BorderThickness="0.6"
+                CornerRadius="24"
+                IsHitTestVisible="False">
+                <Border.Effect>
+                    <DropShadowEffect
+                        BlurRadius="25"
+                        Direction="270"
+                        Opacity="0"
+                        ShadowDepth="4"
+                        Color="#000000" />
+                </Border.Effect>
+
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Offset="0.0" Color="#40FFFFFF" />
+                        <GradientStop Offset="1.0" Color="#15000000" />
+                    </LinearGradientBrush>
+                </Border.Background>
+
+                <Border.BorderBrush>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Offset="0.0" Color="#B0FFFFFF" />
+                        <GradientStop Offset="0.4" Color="#30FFFFFF" />
+                        <GradientStop Offset="0.7" Color="#B0FFFFFF" />
+                        <GradientStop Offset="1.0" Color="#30FFFFFF" />
+                    </LinearGradientBrush>
+                </Border.BorderBrush>
+
+                <Border.OpacityMask>
+                    <VisualBrush>
+                        <VisualBrush.Visual>
+                            <Border
+                                Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Border}}"
+                                Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Border}}"
+                                Background="Red"
+                                CornerRadius="27">
+                            </Border>
+                        </VisualBrush.Visual>
+                    </VisualBrush>
+                </Border.OpacityMask>
+
+                <Grid x:Name="ParallaxCanvas" ClipToBounds="True" />
+            </Border>
+
+            <!--  LAYER 3: UI Controls & Dynamic Shortcuts  -->
+            <Border
+                x:Name="Layer3Border"
+                Margin="6,6,0,6"
+                BorderThickness="1.4"
+                CornerRadius="24">
+                <Border.BorderBrush>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Offset="0.0" Color="#60FFFFFF" />
+                        <GradientStop Offset="0.25" Color="#25FFFFFF" />
+                        <GradientStop Offset="0.65" Color="#05FFFFFF" />
+                        <GradientStop Offset="1.0" Color="#60FFFFFF" />
+                    </LinearGradientBrush>
+                </Border.BorderBrush>
+                <Border.Background>
+                    <SolidColorBrush Color="#E6FFFFFF" />
+                </Border.Background>
+
+                <Grid>
+                    <!--  CUSTOM SIDEBAR MODE (NativeNavPane = 0)  -->
+                    <ScrollViewer x:Name="CustomSidebarScroller" Margin="10,14" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="SidebarContainer">
+                            <TextBlock
+                                Margin="8,30,0,4"
+                                FontSize="10"
+                                FontWeight="Bold"
+                                Foreground="#8E8E93"
+                                Text="Favorites" />
+                            <Button
+                                x:Name="BtnNavApps"
+                                Content="Applications"
+                                Style="{StaticResource SideBar}"
+                                Tag="shell:AppsFolder" />
+                            <Button
+                                x:Name="BtnNavDesktop"
+                                Content="Desktop"
+                                Style="{StaticResource SideBar}"
+                                Tag="Desktop" />
+                            <Button
+                                x:Name="BtnNavDocs"
+                                Content="Documents"
+                                Style="{StaticResource SideBar}"
+                                Tag="MyDocuments" />
+
+                            <!--  CUSTOM SHORTCUTS AREA  -->
+                            <Border
+                                x:Name="DropZoneBorder"
+                                Padding="2"
+                                AllowDrop="True"
+                                Background="Transparent"
+                                CornerRadius="8">
+                                <ItemsControl x:Name="CustomShortcutsList" ItemsSource="{Binding CustomShortcuts}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button
+                                                Content="{Binding Title}"
+                                                Style="{StaticResource SideBar}"
+                                                Tag="{Binding Path}">
+                                                <Button.ContextMenu>
+                                                    <ContextMenu Style="{StaticResource ModernContextMenuStyle}">
+                                                        <MenuItem
+                                                            Header="Delete"
+                                                            Style="{StaticResource ModernMenuItemStyle}" />
+                                                    </ContextMenu>
+                                                </Button.ContextMenu>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+
+                            <TextBlock
+                                Margin="8,10,0,4"
+                                FontSize="10"
+                                FontWeight="Bold"
+                                Foreground="#8E8E93"
+                                Text="Locations" />
+                            <Button
+                                x:Name="BtnNavUser"
+                                Content="{Binding UserProfileName}"
+                                Style="{StaticResource SideBar}"
+                                Tag="UserProfile" />
+                            <Button
+                                x:Name="BtnNavThisPC"
+                                Content="This PC"
+                                Style="{StaticResource SideBar}"
+                                Tag="shell:::{20D04FE0-3AEA-1069-A2D8-08002B30309D}" />
+                            <Button
+                                x:Name="BtnNavTrash"
+                                Content="Trash"
+                                Style="{StaticResource SideBar}"
+                                Tag="shell:::{645FF040-5081-101B-9F08-00AA002F954E}" />
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!--  NATIVE NAVPANE MODE (NativeNavPane = 1)  -->
+                    <Canvas x:Name="NativeNavPaneCanvas" Margin="0" ClipToBounds="True" Visibility="Collapsed" IsHitTestVisible="False">
+                        <ItemsControl ItemsSource="{Binding NavPaneItems}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <Canvas />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemContainerStyle>
+                                <Style TargetType="ContentPresenter">
+                                    <Setter Property="Canvas.Top" Value="{Binding YOffset}" />
+                                    <Setter Property="Canvas.Left" Value="{Binding XIndent}" />
+                                    <Setter Property="Margin" Value="10,0,0,0" />
+                                </Style>
+                            </ItemsControl.ItemContainerStyle>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Width="{Binding ElementName=Layer3Border, Path=ActualWidth}">
+                                        <Border
+                                            x:Name="ItemCapsule"
+                                            Height="{Binding Height}"
+                                            Background="Transparent"
+                                            CornerRadius="0">
+                                            <TextBlock
+                                                x:Name="ItemText"
+                                                VerticalAlignment="Center"
+                                                Margin="12,0,0,0"
+                                                FontSize="13"
+                                                FontWeight="Medium"
+                                                Foreground="{DynamicResource MainTextBrush}"
+                                                Text="{Binding Name}"
+                                                TextTrimming="CharacterEllipsis" />
+                                        </Border>
+                                    </Grid>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                            <Setter TargetName="ItemCapsule" Property="Background" Value="#20888888" />
+                                            <Setter TargetName="ItemText" Property="Foreground" Value="#1678d4" />
+                                            <Setter TargetName="ItemText" Property="FontWeight" Value="SemiBold" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsHovered}" Value="True">
+                                            <Setter TargetName="ItemCapsule" Property="Background" Value="#20888888" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsPressed}" Value="True">
+                                            <Setter TargetName="ItemCapsule" Property="Background" Value="#40888888" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Canvas>
+                </Grid>
+            </Border>
+
+            <!--  LAYER 4: Mac Dots  -->
+            <StackPanel
+                Margin="20,20,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Orientation="Horizontal">
+                <Button
+                    x:Name="DotClose"
+                    Background="#FF5F56"
+                    Style="{StaticResource MacDotStyle}" />
+                <Button
+                    x:Name="DotMinimize"
+                    Background="#FFBD2E"
+                    Style="{StaticResource MacDotStyle}" />
+                <Button
+                    x:Name="DotMaximize"
+                    Background="#27C93F"
+                    Style="{StaticResource MacDotStyle}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Grid>
