@@ -18,11 +18,11 @@ A C# WPF application for Windows that seamlessly attaches as a precise overlay o
 <table>
   <tr>
     <td align="center">
-      <img src="Assets/27day.webp" width="500"><br>
+      <img src="findrbordr_native/Assets/27day.webp" width="500"><br>
       <b>Gambar 1: os27 Light Theme</b>
     </td>
     <td align="center">
-      <img src="Assets/27night.webp" width="500"><br>
+      <img src="findrbordr_native/Assets/27night.webp" width="500"><br>
       <b>Gambar 2: os27 Dark Theme</b>
     </td>
   </tr>
@@ -31,11 +31,11 @@ A C# WPF application for Windows that seamlessly attaches as a precise overlay o
 <table>
   <tr>
     <td align="center">
-      <img src="Assets/26day.jpg" width="500"><br>
+      <img src="findrbordr_native/Assets/26day.jpg" width="500"><br>
       <b>Gambar 1: os26 Light Theme</b>
     </td>
     <td align="center">
-      <img src="Assets/26night.webp" width="500"><br>
+      <img src="findrbordr_native/Assets/26night.webp" width="500"><br>
       <b>Gambar 2: os26 Dark Theme</b>
     </td>
   </tr>
