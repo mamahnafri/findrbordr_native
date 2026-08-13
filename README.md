@@ -18,6 +18,18 @@ A C# WPF application for Windows that seamlessly attaches as a precise overlay o
 ![Preview](dark.webp)
 ![Preview](ss.jpg)
 ![Preview](ss2.jpg)
+<table>
+  <tr>
+    <td align="center">
+      <img src="dark.webp" width="300"><br>
+      <b>Gambar 1: Dark Theme</b>
+    </td>
+    <td align="center">
+      <img src="ss.jpg" width="300"><br>
+      <b>Gambar 2: Light Theme</b>
+    </td>
+  </tr>
+</table>
 
 ---
 
