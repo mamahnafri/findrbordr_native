@@ -184,9 +184,13 @@ namespace findrbordr_native
         {
             if (msg == WM_MOUSEACTIVATE)
             {
-                if (targetExplorerHwnd != IntPtr.Zero && IsWindow(targetExplorerHwnd))
+                // Only force focus to Explorer when not in native navpane mode
+                if (appSettings.NativeNavPane != 1)
                 {
-                    SetForegroundWindow(targetExplorerHwnd);
+                    if (targetExplorerHwnd != IntPtr.Zero && IsWindow(targetExplorerHwnd))
+                    {
+                        SetForegroundWindow(targetExplorerHwnd);
+                    }
                 }
                 handled = true;
                 return (IntPtr)MA_NOACTIVATE;
@@ -206,31 +210,24 @@ namespace findrbordr_native
             if (SidebarContainer == null)
                 return;
 
-            // Kumpulkan semua tombol yang ada di dalam SidebarContainer (termasuk di dalam ItemsControl)
             var buttons = FindVisualChildren<Button>(SidebarContainer);
 
             foreach (var btn in buttons)
             {
-                // 1. ABAIKAN TOMBOL MAC DOTS (DotClose, DotMinimize, DotMaximize)
                 if (
                     btn.Name == "DotClose"
                     || btn.Name == "DotMinimize"
                     || btn.Name == "DotMaximize"
                 )
                 {
-                    continue; // Lewati tombol ini, jangan diubah background/foreground-nya
+                    continue;
                 }
                 bool isActive = IsButtonMatchingFolder(btn, rawFolderName);
 
-                // Jika cocok, ubah background-nya seperti style Hover
                 if (isActive)
                 {
-                    btn.Background = new SolidColorBrush(
-                        (Color)ColorConverter.ConvertFromString("#20888888")
-                    );
-                    btn.Foreground = new SolidColorBrush(
-                        (Color)ColorConverter.ConvertFromString("#1678d4")
-                    );
+                    btn.Background = CachedActiveBrush;
+                    btn.Foreground = CachedActiveForegroundBrush;
                 }
                 else
                 {
@@ -239,6 +236,13 @@ namespace findrbordr_native
                 }
             }
         }
+
+        private static readonly SolidColorBrush CachedActiveBrush = new SolidColorBrush(
+            (Color)ColorConverter.ConvertFromString("#20888888")
+        );
+        private static readonly SolidColorBrush CachedActiveForegroundBrush = new SolidColorBrush(
+            (Color)ColorConverter.ConvertFromString("#1678d4")
+        );
 
         /// <summary>
         /// Memeriksa apakah Button sesuai dengan folder yang sedang dibuka
@@ -307,33 +311,6 @@ namespace findrbordr_native
             return false;
         }
 
-        /// <summary>
-        /// Helper untuk mencari semua child control bertipe T secara rekursif (untuk mencari button di ItemsControl)
-        /// </summary>
-        private static IEnumerable<T> FindVisualChildren<T>(DependencyObject? depObj)
-            where T : DependencyObject
-        {
-            if (depObj == null)
-                yield break;
-
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(depObj); i++)
-            {
-                DependencyObject child = VisualTreeHelper.GetChild(depObj, i);
-                if (child != null && child is T t)
-                {
-                    yield return t;
-                }
-
-                // Penanganan null check pada panggilan rekursif
-                if (child != null)
-                {
-                    foreach (T childOfChild in FindVisualChildren<T>(child))
-                    {
-                        yield return childOfChild;
-                    }
-                }
-            }
-        }
         #endregion
     }
 }

@@ -119,8 +119,11 @@ namespace findrbordr_native
             if (isNavigating)
                 return;
 
+            // Ambil Button dari OriginalSource jika menggunakan AddHandler
+            Button? btn = sender as Button ?? e.OriginalSource as Button;
+
             if (
-                sender is Button btn
+                btn != null
                 && btn.Tag is string pathTarget
                 && !string.IsNullOrWhiteSpace(pathTarget)
                 && targetExplorerHwnd != IntPtr.Zero
@@ -222,85 +225,23 @@ namespace findrbordr_native
             return sb.ToString();
         }
 
-        private void BtnSort_Click(object sender, RoutedEventArgs e)
-        {
-            // Buka ContextMenu tepat di tombol overlay yang diklik!
-            if (sender is FrameworkElement element && element.ContextMenu != null)
-            {
-                element.ContextMenu.IsOpen = true;
-            }
-        }
 
-        private void BtnBack_Click(object sender, RoutedEventArgs e) =>
-            SendKeysToExplorer("%{LEFT}");
 
-        private void BtnForward_Click(object sender, RoutedEventArgs e) =>
-            SendKeysToExplorer("%{RIGHT}");
+        // Single Handler for Navigation & View Shortcuts (Set Tag in XAML, e.g. Tag="%{LEFT}")
+    private void BtnShortcut_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is string keys) SendKeysToExplorer(keys);
+    }
 
-        private void BtnUp_Click(object sender, RoutedEventArgs e) => SendKeysToExplorer("%{UP}");
+    private void BtnFolderOptions_Click(object sender, RoutedEventArgs e) { try { Process.Start("control.exe", "folders"); } catch { } }
+    private void BtnClose_Click(object sender, RoutedEventArgs e) { if (targetExplorerHwnd != IntPtr.Zero) SendMessage(targetExplorerHwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero); }
+    private void BtnMinimize_Click(object sender, RoutedEventArgs e) { if (targetExplorerHwnd != IntPtr.Zero) SendMessage(targetExplorerHwnd, WM_SYSCOMMAND, (IntPtr)SC_MINIMIZE, IntPtr.Zero); }
+    private void BtnMaximize_Click(object sender, RoutedEventArgs e) { if (targetExplorerHwnd != IntPtr.Zero) SendMessage(targetExplorerHwnd, WM_SYSCOMMAND, IsZoomed(targetExplorerHwnd) ? (IntPtr)SC_RESTORE : (IntPtr)SC_MAXIMIZE, IntPtr.Zero); }
+    private void BtnExit_Click(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
 
-        private void BtnViewIcons_Click(object sender, RoutedEventArgs e) =>
-            SendKeysToExplorer("^+3");
 
-        private void BtnViewList_Click(object sender, RoutedEventArgs e) =>
-            SendKeysToExplorer("^+5");
-
-        private void BtnViewDetails_Click(object sender, RoutedEventArgs e) =>
-            SendKeysToExplorer("^+6");
-
-        private void BtnViewTiles_Click(object sender, RoutedEventArgs e) =>
-            SendKeysToExplorer("^+7");
-
-        private void BtnTogglePreview_Click(object sender, RoutedEventArgs e) =>
-            SendKeysToExplorer("%p");
-
-        private void BtnToggleDetailsPane_Click(object sender, RoutedEventArgs e) =>
-            SendKeysToExplorer("+%p");
-
-        private void BtnProperties_Click(object sender, RoutedEventArgs e) =>
-            SendKeysToExplorer("%{ENTER}");
-
-        private void BtnContextMenu_Click(object sender, RoutedEventArgs e) =>
-            SendKeysToExplorer("+{F10}");
-
-        private void BtnSearch_Click(object sender, RoutedEventArgs e) => SendKeysToExplorer("^f");
-
-        private void BtnFolderOptions_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                Process.Start("control.exe", "folders");
-            }
-            catch { }
-        }
-
-        private void BtnClose_Click(object sender, RoutedEventArgs e)
-        {
-            if (targetExplorerHwnd != IntPtr.Zero && IsWindow(targetExplorerHwnd))
-                SendMessage(targetExplorerHwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
-        }
-
-        private void BtnMinimize_Click(object sender, RoutedEventArgs e)
-        {
-            if (targetExplorerHwnd != IntPtr.Zero && IsWindow(targetExplorerHwnd))
-                SendMessage(targetExplorerHwnd, WM_SYSCOMMAND, (IntPtr)SC_MINIMIZE, IntPtr.Zero);
-        }
-
-        private void BtnMaximize_Click(object sender, RoutedEventArgs e)
-        {
-            if (targetExplorerHwnd != IntPtr.Zero && IsWindow(targetExplorerHwnd))
-            {
-                SendMessage(
-                    targetExplorerHwnd,
-                    WM_SYSCOMMAND,
-                    IsZoomed(targetExplorerHwnd) ? (IntPtr)SC_RESTORE : (IntPtr)SC_MAXIMIZE,
-                    IntPtr.Zero
-                );
-            }
-        }
 
         #endregion
-
         #region ==================== APP SETTINGS & SHORTCUTS LOGIC ====================
 
         private void InitSettingsAndShortcuts()
@@ -308,12 +249,17 @@ namespace findrbordr_native
             try
             {
                 appSettings = SettingsStorage.LoadSettings();
-                customShortcuts = appSettings.CustomShortcuts;
+                customShortcuts =
+                    appSettings.CustomShortcuts ?? new ObservableCollection<ShortcutItem>();
 
                 Dispatcher.BeginInvoke(
                     new Action(() =>
                     {
-                        if (this.FindName("CustomShortcutsList") is ItemsControl listControl)
+                        if (
+                            this.Content is FrameworkElement root
+                            && FindElementByName<ItemsControl>(root, "CustomShortcutsList")
+                                is ItemsControl listControl
+                        )
                         {
                             listControl.ItemsSource = customShortcuts;
                         }
@@ -340,37 +286,53 @@ namespace findrbordr_native
                 ApplyOuterCosmeticBorderVisibility();
                 ApplyToolbarPosition();
 
-                if (
-                    this.FindName("SidebarColumn") is ColumnDefinition sidebarCol
-                    && appSettings.SidebarWidth > 0
-                )
+                // Content langsung adalah root dari XAML theme
+                if (this.Content is not FrameworkElement root)
+                    return;
+
+                // 1. Set Lebar Column Sidebar - use cachedNavPaneWidth from Explorer navpane
+                var sidebarCol = FindElementByName<ColumnDefinition>(root, "SidebarColumn");
+                if (sidebarCol != null)
                 {
-                    sidebarCol.Width = new GridLength(appSettings.SidebarWidth);
+                    double actualWidth = appSettings.SidebarWidth;
+                    if (cachedNavPaneWidth > 0)
+                    {
+                        actualWidth = cachedNavPaneWidth + 10;
+                    }
+                    if (actualWidth > 0)
+                    {
+                        sidebarCol.Width = new GridLength(actualWidth);
+                    }
                 }
 
+                // 2. Set Warna Capsule Background Brush
                 if (!string.IsNullOrEmpty(appSettings.CapsuleBackgroundBrush))
                 {
                     var capsuleColor = (Color)
                         ColorConverter.ConvertFromString(appSettings.CapsuleBackgroundBrush);
-                    this.Resources["CapsuleBackgroundBrush"] = new SolidColorBrush(capsuleColor);
+                    root.Resources["CapsuleBackgroundBrush"] = new SolidColorBrush(capsuleColor);
                 }
 
+                // 3. Set Warna Main Text
                 if (!string.IsNullOrEmpty(appSettings.MainTextBrush))
                 {
                     var textColor = (Color)
                         ColorConverter.ConvertFromString(appSettings.MainTextBrush);
-                    this.Resources["MainTextBrush"] = new SolidColorBrush(textColor);
+                    root.Resources["MainTextBrush"] = new SolidColorBrush(textColor);
                 }
 
+                // 4. Set Warna Outer Frame
                 if (!string.IsNullOrEmpty(appSettings.OuterFrameBrush))
                 {
                     var outerColor = (Color)
                         ColorConverter.ConvertFromString(appSettings.OuterFrameBrush);
-                    this.Resources["OuterFrameBrush"] = new SolidColorBrush(outerColor);
+                    root.Resources["OuterFrameBrush"] = new SolidColorBrush(outerColor);
                 }
 
+                // 5. Set DropShadow Sidebar
                 if (
-                    this.FindName("LeftSidebarShadowBorder") is Border shadowBorder
+                    FindElementByName<Border>(root, "LeftSidebarShadowBorder")
+                        is Border shadowBorder
                     && appSettings.LeftSidebarGridShadow != null
                 )
                 {
@@ -386,8 +348,9 @@ namespace findrbordr_native
                     };
                 }
 
+                // 6. Set Background Layer3 Border
                 if (
-                    this.FindName("Layer3Border") is Border layer3Border
+                    FindElementByName<Border>(root, "Layer3Border") is Border layer3Border
                     && appSettings.Layer3BorderBackground != null
                 )
                 {
@@ -408,39 +371,94 @@ namespace findrbordr_native
         {
             bool showBorder = appSettings.OuterCosmeticBorderVisible != 0;
 
-            if (this.FindName("OuterCosmeticFrameBorder") is Border outerBorder)
+            if (
+                this.Content is FrameworkElement root
+                && FindElementByName<Border>(root, "OuterCosmeticFrameBorder") is Border outerBorder
+            )
+            {
                 outerBorder.Visibility = showBorder ? Visibility.Visible : Visibility.Collapsed;
+            }
         }
 
         private void ApplyToolbarPosition()
         {
-            if (this.FindName("ToolbarGrid") is Grid toolbarGrid)
+            if (
+                this.Content is FrameworkElement root
+                && FindElementByName<Grid>(root, "ToolbarGrid") is Grid toolbarGrid
+            )
             {
-                toolbarGrid.RenderTransform = new TranslateTransform(appSettings.ToolbarPosX, appSettings.ToolbarPosY);
+                toolbarGrid.RenderTransform = new TranslateTransform(
+                    appSettings.ToolbarPosX,
+                    appSettings.ToolbarPosY
+                );
             }
         }
 
         private void ApplySidebarVisibility()
         {
             bool showSidebar = appSettings.SidebarVisible != 0;
+            bool useNativeNavPane = appSettings.NativeNavPane == 1;
+            if (this.Content is not FrameworkElement root)
+                return;
 
-            // 1. Ubah Lebar Kolom
-            if (this.FindName("SidebarColumn") is ColumnDefinition sidebarCol)
+            // 1. Ubah Lebar Kolom - use cachedNavPaneWidth from Explorer navpane
+            var sidebarCol = FindElementByName<ColumnDefinition>(root, "SidebarColumn");
+            if (sidebarCol != null)
             {
+                double actualWidth = appSettings.SidebarWidth;
+                if (cachedNavPaneWidth > 0)
+                {
+                    actualWidth = cachedNavPaneWidth + 10;
+                }
                 sidebarCol.Width = showSidebar
-                    ? new GridLength(appSettings.SidebarWidth)
+                    ? new GridLength(actualWidth)
                     : new GridLength(50);
             }
 
-            // 2. Sembunyikan SELURUH Layer Sidebar saat ditutup (Mac Dot TIDAK AKAN HILANG)
-            if (this.FindName("LeftSidebarShadowBorder") is Border shadowBorder)
+            // 2. Sembunyikan Layer Sidebar saat ditutup
+            if (FindElementByName<Border>(root, "LeftSidebarShadowBorder") is Border shadowBorder)
+            {
                 shadowBorder.Visibility = showSidebar ? Visibility.Visible : Visibility.Collapsed;
+                shadowBorder.IsHitTestVisible = showSidebar && !useNativeNavPane;
+            }
 
-            if (this.FindName("SidebarGlassBorder") is Border glassBorder)
+            if (FindElementByName<Border>(root, "SidebarGlassBorder") is Border glassBorder)
                 glassBorder.Visibility = showSidebar ? Visibility.Visible : Visibility.Collapsed;
 
-            if (this.FindName("Layer3Border") is Border layer3Border)
+            if (FindElementByName<Border>(root, "Layer3Border") is Border layer3Border)
+            {
                 layer3Border.Visibility = showSidebar ? Visibility.Visible : Visibility.Collapsed;
+                layer3Border.IsHitTestVisible = showSidebar && !useNativeNavPane;
+            }
+
+            // 3. Toggle Custom vs Native NavPane
+            var customScroller = FindElementByName<ScrollViewer>(root, "CustomSidebarScroller");
+            var nativeCanvas = FindElementByName<Canvas>(root, "NativeNavPaneCanvas");
+
+            if (customScroller != null && nativeCanvas != null)
+            {
+                if (useNativeNavPane)
+                {
+                    customScroller.Visibility = Visibility.Collapsed;
+                    nativeCanvas.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    customScroller.Visibility = Visibility.Visible;
+                    nativeCanvas.Visibility = Visibility.Collapsed;
+                }
+            }
+
+            // 4. Scan NavPane for both modes to get width
+            if (targetExplorerHwnd != IntPtr.Zero)
+            {
+                ScanExplorerNavPane();
+                StartNavPaneTimers();
+            }
+            else
+            {
+                StopNavPaneTimers();
+            }
         }
 
         private void SaveAllSettings()
@@ -451,6 +469,7 @@ namespace findrbordr_native
 
         private void DropZone_DragOver(object sender, DragEventArgs e)
         {
+            Debug.WriteLine("[DEBUG] DropZone_DragOver triggered!");
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
                 e.Effects = DragDropEffects.Copy;
             else
@@ -462,10 +481,12 @@ namespace findrbordr_native
         private void DropZone_Drop(object sender, DragEventArgs e)
         {
             e.Handled = true;
+            Debug.WriteLine("[DEBUG] DropZone_Drop triggered!");
 
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
                 string[]? files = e.Data.GetData(DataFormats.FileDrop) as string[];
+                Debug.WriteLine($"[DEBUG] Files dropped: {files?.Length ?? 0}");
                 if (files != null && files.Length > 0)
                 {
                     bool hasNewItems = false;
@@ -486,8 +507,14 @@ namespace findrbordr_native
 
                     if (hasNewItems)
                     {
+                        Debug.WriteLine($"[DEBUG] Saving {customShortcuts.Count} shortcuts to JSON...");
                         SaveAllSettings();
-                        if (this.FindName("CustomShortcutsList") is ItemsControl listControl)
+                        Debug.WriteLine("[DEBUG] Settings saved!");
+                        if (
+                            this.Content is FrameworkElement root
+                            && FindElementByName<ItemsControl>(root, "CustomShortcutsList")
+                                is ItemsControl listControl
+                        )
                         {
                             listControl.ItemsSource = null;
                             listControl.ItemsSource = customShortcuts;
@@ -519,12 +546,19 @@ namespace findrbordr_native
 
         private void BtnDeleteShortcut_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is MenuItem menuItem && menuItem.DataContext is ShortcutItem itemToRemove)
+            // Ambil MenuItem dari OriginalSource untuk global handler
+            MenuItem? menuItem = sender as MenuItem ?? e.OriginalSource as MenuItem;
+
+            if (menuItem != null && menuItem.DataContext is ShortcutItem itemToRemove)
             {
                 customShortcuts.Remove(itemToRemove);
                 SaveAllSettings();
 
-                if (this.FindName("CustomShortcutsList") is ItemsControl listControl)
+                if (
+                    this.Content is FrameworkElement root
+                    && FindElementByName<ItemsControl>(root, "CustomShortcutsList")
+                        is ItemsControl listControl
+                )
                 {
                     listControl.ItemsSource = null;
                     listControl.ItemsSource = customShortcuts;
@@ -534,33 +568,24 @@ namespace findrbordr_native
 
         private void Sidebar_ContextMenuOpening(object sender, ContextMenuEventArgs e)
         {
-            if (
-                e.OriginalSource is FrameworkElement element
-                && element.ContextMenu != null
-                && element.ContextMenu != (sender as FrameworkElement)?.ContextMenu
-            )
-            {
-                e.Handled = true;
-            }
+            // Jangan blok context menu dari child elements
+            // Biarkan context menu dari Grid utama maupun child elements sama-sama bisa terbuka
         }
 
         private void BtnSettings_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                // 1. Dapatkan path lengkap file app_settings.json di lokasi jalannya executable (.exe)
                 string settingsPath = System.IO.Path.Combine(
                     AppDomain.CurrentDomain.BaseDirectory,
                     "app_settings.json"
                 );
 
-                // 2. Jika file belum ada, buat file default dulu agar tidak error saat dibuka
                 if (!System.IO.File.Exists(settingsPath))
                 {
-                    SaveAllSettings(); // Memanggil fungsi simpan yang sudah kamu buat sebelumnya
+                    SaveAllSettings();
                 }
 
-                // 3. Jalankan file menggunakan aplikasi default sistem (Shell)
                 Process.Start(
                     new ProcessStartInfo { FileName = settingsPath, UseShellExecute = true }
                 );
@@ -585,31 +610,42 @@ namespace findrbordr_native
                 customShortcuts =
                     appSettings.CustomShortcuts ?? new ObservableCollection<ShortcutItem>();
 
-                if (this.FindName("CustomShortcutsList") is ItemsControl listControl)
-                {
-                    listControl.ItemsSource = null;
-                    listControl.ItemsSource = customShortcuts;
-                }
-
                 ApplyAppSettingsToUI();
+                RefreshCustomShortcutsList();
             }
             catch (Exception ex)
             {
-                Debug.WriteLine("Gagal reload JSON settings: " + ex.Message);
+                Debug.WriteLine("Gagal reload JSON/XAML settings: " + ex.Message);
             }
         }
 
-        private void BtnRelaunch_Click(object sender, RoutedEventArgs e)
+        private void RefreshCustomShortcutsList()
+        {
+            if (this.Content is not FrameworkElement root)
+                return;
+
+            if (FindElementByName<ItemsControl>(root, "CustomShortcutsList") is ItemsControl listControl)
+            {
+                listControl.ItemsSource = null;
+                listControl.ItemsSource = customShortcuts;
+            }
+        }
+
+        private async void BtnRelaunch_Click(object sender, RoutedEventArgs e)
         {
             try
             {
                 string? exePath = Process.GetCurrentProcess().MainModule?.FileName;
                 if (!string.IsNullOrEmpty(exePath))
                 {
-                    SaveAllSettings();
+                    var app = Application.Current as App;
+                    app?.ReleaseMutexForRelaunch();
+                    
                     Process.Start(
                         new ProcessStartInfo { FileName = exePath, UseShellExecute = true }
                     );
+                    
+                    await Task.Delay(500);
                     Environment.Exit(0);
                 }
             }
@@ -617,12 +653,6 @@ namespace findrbordr_native
             {
                 Debug.WriteLine("Failed to relaunch application: " + ex.Message);
             }
-        }
-
-        private void BtnExit_Click(object sender, RoutedEventArgs e)
-        {
-            SaveAllSettings();
-            Application.Current.Shutdown();
         }
 
         #endregion

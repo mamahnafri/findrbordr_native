@@ -1,0 +1,134 @@
+New Theming System
+New Native Navigation Pane option
+New Wallpaper Parallax processing method
+New Dynamic Sidebar size
+
+Recommended using windhawk mod "Windows 11 File Explorer Styler" to hide the default toolbar.
+<details><summary>
+theme: ''
+backgroundTranslucentEffect: none
+backgroundTranslucentEffectRegion: ''
+styleConstants:
+  - ''
+controlStyles:
+  - target: FileExplorerExtensions.FileExplorerTabControl
+    styles:
+      - Margin=0,100,0,0
+  - target: TabViewItem > Grid#LayoutRoot
+    styles:
+      - CornerRadius=10
+      - Margin=0,-5,0,0
+      - Height=24
+      - BorderBrush=#30000000
+      - BorderThickness=1,1,1,1
+      - MaxWidth=230
+  - target: Button#AddButton
+    styles:
+      - Background=Transparent
+  - target: Grid#TabContainerGrid > Border > Button#AddButton
+    styles:
+      - HorizontalAlignment=Right
+      - Margin=-10,120,5,5
+      - Height=24
+      - Width=24
+      - CornerRadius=12
+      - BorderBrush=#30000000
+      - BorderThickness=0
+themeResourceVariables:
+  - ''
+explorerFrameContainerHeight: 50
+xamlDiagnosticsHandling: ''
+</summary></details>
+
+
+Right click on toolbar:
+Settings : open app_settings.json using your default editor
+Apply settings : Apply settings beside xaml theme
+Relaunch app : Apply xaml change, or after change wallpaper
+Exit App : quit
+
+JSON :
+SidebarVisible 0 : Hide the sidebar overlay, so only dot and toolbar left.
+NativeNavPane 0 : Use custom shortcut add by yourself. you can edit the json or drag the folder to sidebar near favorites.
+NativeNavPane 1 : Mirror your explorer navpane, it's click trough so you can treat it as a normal nav pane.
+OuterCosmeticBorderVisible 1 : Additional border like tacky border, you can adjust the corner radius inside the xaml.
+
+You can create you own theme or add any toolbar with hotkey function, example:
+
+<!--  Tag Icon  -->
+                    <Button
+                        x:Name="BtnTag" (change any name you want as long as not already exist)
+                        Width="28"
+                        Height="26"
+                        Style="{StaticResource NavButtonStyle}"
+                        Tag="%{ENTER}" (change the hotkey with another hotkey function you want)
+                        ToolTip="Edit Tags"> (tooltip text when hover the button)
+                        <Path
+                            Data="M 4,2 H 9 L 16,9 A 1,1 0 0 1 16,10.5 L 10.5,16 A 1,1 0 0 1 9,16 L 2,9 V 4 A 2,2 0 0 1 4,2 Z M 5.5,5.5 A 0.5,0.5 0 1 0 5.5,5.6 Z"
+                            Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                            StrokeLineJoin="Round"
+                            StrokeThickness="1.5" /> (change svg path as icon)
+                    </Button>
+
+
+
+
+Themes :
+os27.xaml = os27 beta inspired
+Recommended settings Darkmode: (color depends on your theme, use colorpicker for accurate color blending) (use alpha with hex color)
+{
+  "ThemeXamlPath": "Themes/os27.xaml",
+  "SidebarVisible": 1,
+  "NativeNavPane": 1,
+  "OuterCosmeticBorderVisible": 0,
+  "ToolbarPosX": -7,
+  "ToolbarPosY": 10,
+  "SidebarWidth": 190,	
+  "CapsuleBackgroundBrush": "#191919",
+  "MainTextBrush": "#ffffff",
+  "OuterFrameBrush": "#191919",
+  "Layer3BorderBackground": {
+    "ColorHex": "#191919",
+    "Opacity": 0.85
+  },
+  "LeftSidebarGridShadow": {
+    "BlurRadius": 20,
+    "Opacity": 0,
+    "ShadowDepth": 5,
+    "ColorHex": "#000000"
+  }
+
+Recommended settings Lightmode: (paste above settings first, then replace with these)
+"CapsuleBackgroundBrush": "White",
+  "MainTextBrush": "#191919",
+  "OuterFrameBrush": "White",
+  "Layer3BorderBackground": {
+    "ColorHex": "White",
+    "Opacity": 0.85
+	
+
+
+Default.xaml = os26 inspired
+Recommended settings Darkmode:
+
+{
+  "ThemeXamlPath": "Themes/default.xaml",
+  "SidebarVisible": 1,
+  "NativeNavPane": 1,
+  "OuterCosmeticBorderVisible": 1,
+  "ToolbarPosX": -3,
+  "ToolbarPosY": 7,
+  "SidebarWidth": 190,	
+  "CapsuleBackgroundBrush": "#191919",
+  "MainTextBrush": "#ffffff",
+  "OuterFrameBrush": "#191919",
+  "Layer3BorderBackground": {
+    "ColorHex": "#191919",
+    "Opacity": 0.85
+  },
+  "LeftSidebarGridShadow": {
+    "BlurRadius": 20,
+    "Opacity": 0.15,
+    "ShadowDepth": 5,
+    "ColorHex": "#000000"
+  }

@@ -1,0 +1,23 @@
+{
+  "ThemeXamlPath": "Themes/os27.xaml",
+  "SidebarVisible": 1,
+  "NativeNavPane": 1,
+  "OuterCosmeticBorderVisible": 0,
+  "ToolbarPosX": -7,
+  "ToolbarPosY": 10,
+  "SidebarWidth": 190,	
+  "CapsuleBackgroundBrush": "#191919",
+  "MainTextBrush": "#ffffff",
+  "OuterFrameBrush": "#191919",
+  "Layer3BorderBackground": {
+    "ColorHex": "#191919",
+    "Opacity": 0.85
+  },
+  "LeftSidebarGridShadow": {
+    "BlurRadius": 20,
+    "Opacity": 0,
+    "ShadowDepth": 5,
+    "ColorHex": "#000000"
+  },
+  "CustomShortcuts": []
+}
